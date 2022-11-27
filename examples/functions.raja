@@ -1,0 +1,6 @@
+// this is a comment
+some_func = (x) => 10
+
+multiline_func = (x) => {
+  x + 1
+}
