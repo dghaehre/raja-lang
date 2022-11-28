@@ -32,6 +32,7 @@ const (
 	comment tokKind = iota
 	unknown
 
+	emptyToken // Used as: nothing here
 	comma
 	dot
 	leftParen
@@ -61,9 +62,6 @@ const (
 	greater
 	less
 	eq
-
-	// temp tokKin
-	lineBreak
 
 	// keywords
 	matchKeyword
@@ -129,8 +127,6 @@ func (t token) String() string {
 		return "<"
 	case eq:
 		return "=="
-	case lineBreak:
-		return "⏎"
 	case matchKeyword:
 		return "match"
 	case underscore:
@@ -281,7 +277,7 @@ func (t *tokenizer) nextToken() token {
 	case '\n':
 		t.line++
 		t.col = 0
-		return token{kind: lineBreak, pos: t.currentPos()}
+		return token{kind: emptyToken}
 	case ']':
 		return token{kind: rightBracket, pos: t.currentPos()}
 	case '{':
@@ -300,6 +296,8 @@ func (t *tokenizer) nextToken() token {
 		return token{kind: assign, pos: t.currentPos()}
 	case '+':
 		return token{kind: plus, pos: t.currentPos()}
+	case '-':
+		return token{kind: minus, pos: t.currentPos()}
 	case '/':
 		if !t.isEOF() && t.peek() == '/' {
 			pos := t.currentPos()
@@ -356,15 +354,13 @@ func (t *tokenizer) tokenize() []token {
 	}
 
 	// Tokenize rest of file
-	last := token{}
 	for !t.isEOF() {
 		next := t.nextToken()
 
-		// Dont include multiple linebreaks in a row
-		if !(last.kind == lineBreak && next.kind == lineBreak) {
+		// Dont include comments (yet)
+		if !(next.kind == emptyToken || next.kind == comment) {
 			tokens = append(tokens, next)
 		}
-		last = next
 
 		// snip whitespace after
 		for !t.isEOF() && unicode.IsSpace(t.peek()) {

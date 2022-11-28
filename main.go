@@ -12,7 +12,8 @@ func runFile(filePath string) {
 		os.Exit(1)
 	}
 	defer file.Close()
-  c := NewContext()
+	c := NewContext()
+	c.LoadBuiltins()
 	err = c.Eval(file)
 	if err != nil {
 		fmt.Println(err)

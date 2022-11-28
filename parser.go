@@ -96,6 +96,23 @@ func (p *parser) parseAssignment(left astNode) (astNode, error) {
 	return node, nil
 }
 
+func (p *parser) parseBinaryOP(left astNode) (astNode, error) {
+	// NOTE: maybe add a double check for op actually being a BinaryToken
+	op := p.next()
+	node := binaryNode{
+		left: left,
+		op:   op.kind,
+		tok:  &op,
+	}
+
+	right, err := p.parseNode()
+	if err != nil {
+		return nil, err
+	}
+	node.right = right
+	return node, nil
+}
+
 func (p *parser) parseNumberLiteral(tok token) (astNode, error) {
 	if strings.ContainsRune(tok.payload, '.') {
 		f, err := strconv.ParseFloat(tok.payload, 64)
@@ -135,20 +152,6 @@ func (p *parser) parseUnit() (astNode, error) {
 	}
 }
 
-// parseSubNode is responsible for parsing independent "terms" in the Oak
-// syntax, like terms in unary and binary expressions and in pipelines. It is
-// in between parseUnit and parseNode.
-//
-// Det kan være jeg ikke trenger denne med en gang
-// func (p *parser) parseSubNode() (astNode, error) {
-// 	node, err := p.parseUnit()
-// 	if err != nil {
-// 		return nil, err
-// 	}
-// 	return node, err
-// }
-
-// TODO: better naming?
 // Used for unary and binary expressions. Sits between parseUnit and parseNode.
 func (p *parser) parseSubNode() (astNode, error) {
 	node, err := p.parseUnit()
@@ -176,6 +179,9 @@ func (p *parser) parseNode() (astNode, error) {
 		switch p.peek().kind {
 		case assign:
 			return p.parseAssignment(node)
+		case plus, minus, times, divide:
+			// TODO: add: and, or, greater, less, eq, geq, leq, neq:
+			return p.parseBinaryOP(node)
 		default:
 			return node, nil
 		}

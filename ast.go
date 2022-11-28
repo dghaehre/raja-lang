@@ -73,3 +73,18 @@ func (n assignmentNode) String() string {
 func (n assignmentNode) pos() pos {
 	return n.tok.pos
 }
+
+type binaryNode struct {
+	op    tokKind
+	left  astNode
+	right astNode
+	tok   *token
+}
+
+func (n binaryNode) String() string {
+	opTok := token{kind: n.op}
+	return "(" + n.left.String() + " " + opTok.String() + " " + n.right.String() + ")"
+}
+func (n binaryNode) pos() pos {
+	return n.tok.pos
+}

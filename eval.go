@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"fmt"
 	"io"
 	"strconv"
@@ -78,6 +79,19 @@ func (v IntValue) Eq(u Value) bool {
 	return false
 }
 
+type BoolValue bool
+
+func (v BoolValue) String() string {
+	return fmt.Sprintf("%s", v)
+}
+
+func (v BoolValue) Eq(u Value) bool {
+	if w, ok := u.(BoolValue); ok {
+		return v == w
+	}
+	return false
+}
+
 type FloatValue float64
 
 func (v FloatValue) String() string {
@@ -92,24 +106,34 @@ func (v FloatValue) Eq(u Value) bool {
 	return false
 }
 
+type StringValue []byte
+
+func (v *StringValue) String() string {
+	return fmt.Sprintf("\"%s\"", string(*v))
+}
+
+func (v *StringValue) Eq(u Value) bool {
+	if w, ok := u.(*StringValue); ok {
+		return bytes.Equal(*v, *w)
+	}
+	return false
+}
+
 // Scope
 
+// Put variable into scope
 func (sc *scope) put(name string, v Value) {
 	sc.vars[name] = v
 }
 
-// update "name" with new Value
-func (sc *scope) update(name string, v Value) *runtimeError {
-	if _, ok := sc.vars[name]; ok {
-		sc.vars[name] = v
-		return nil
+func (sc *scope) get(name string) (Value, *runtimeError) {
+	v, ok := sc.vars[name]
+	if !ok {
+		return nil, &runtimeError{
+			reason: fmt.Sprintf("%s is undefined", name),
+		}
 	}
-	if sc.parent != nil {
-		return sc.parent.update(name, v)
-	}
-	return &runtimeError{
-		reason: fmt.Sprintf("%s is undefined", name),
-	}
+	return v, nil
 }
 
 // Eval
@@ -141,12 +165,83 @@ func (c *Context) Eval(reader io.Reader) error {
 	return nil
 }
 
+func incompatibleError(op tokKind, left, right Value, position pos) *runtimeError {
+	return &runtimeError{
+		reason: fmt.Sprintf("Cannot %s incompatible values %s, %s",
+			token{kind: op}, left, right),
+		pos: position,
+	}
+}
+
+func intBinaryOp(op tokKind, left IntValue, right IntValue) (Value, *runtimeError) {
+	switch op {
+	case minus:
+		return IntValue(left - right), nil
+	case plus:
+		return IntValue(left + right), nil
+	default:
+		return nil, incompatibleError(op, left, right, pos{})
+	}
+}
+
+func (c *Context) evalBinaryNode(n binaryNode, sc scope) (Value, *runtimeError) {
+	leftComputed, err := c.evalExpr(n.left, sc)
+	if err != nil {
+		return nil, err
+	}
+	rightComputed, err := c.evalExpr(n.right, sc)
+	if err != nil {
+		return nil, err
+	}
+	if n.op == eq {
+		return BoolValue(leftComputed.Eq(rightComputed)), nil
+	}
+	// TODO: add neq (!=)
+	switch left := leftComputed.(type) {
+	case IntValue:
+		right, ok := rightComputed.(IntValue)
+		if !ok {
+			// rightFloat, ok := rightComputed.(FloatValue)
+			// if !ok {
+			return nil, incompatibleError(n.op, leftComputed, rightComputed, n.pos())
+			// }
+			//
+			// leftFloat := FloatValue(float64(int64(left)))
+			// val, err := floatBinaryOp(n.op, leftFloat, rightFloat)
+			// if err != nil {
+			// 	err.pos = n.pos()
+			// }
+			// return val, err
+		}
+
+		val, err := intBinaryOp(n.op, left, right)
+		if err != nil {
+			err.pos = n.pos()
+		}
+		return val, err
+	default:
+		return nil, &runtimeError{
+			reason: fmt.Sprintf("Binary operator %s is not defined for values %s, %s",
+				token{kind: n.op}, leftComputed, rightComputed),
+			pos: n.pos(),
+		}
+	}
+}
+
 func (c *Context) evalExpr(node astNode, sc scope) (Value, *runtimeError) {
 	switch n := node.(type) {
 	case intNode:
 		return IntValue(n.payload), nil
 	case floatNode:
 		return FloatValue(n.payload), nil
+	case binaryNode:
+		return c.evalBinaryNode(n, sc)
+	case identifierNode:
+		val, err := sc.get(n.payload)
+		if err != nil {
+			err.pos = n.pos()
+		}
+		return val, err
 	case assignmentNode:
 		assignedValue, err := c.evalExpr(n.right, sc)
 		if err != nil {
