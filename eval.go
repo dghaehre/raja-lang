@@ -82,7 +82,11 @@ func (v IntValue) Eq(u Value) bool {
 type BoolValue bool
 
 func (v BoolValue) String() string {
-	return fmt.Sprintf("%s", v)
+	if v {
+		return "true"
+	} else {
+		return "false"
+	}
 }
 
 func (v BoolValue) Eq(u Value) bool {
@@ -138,10 +142,10 @@ func (sc *scope) get(name string) (Value, *runtimeError) {
 
 // Eval
 
-func (c *Context) Eval(reader io.Reader) error {
+func (c *Context) Eval(reader io.Reader) (Value, error) {
 	program, err := io.ReadAll(reader)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	tokenizer := newTokenizer(string(program))
 	tokens := tokenizer.tokenize()
@@ -149,7 +153,7 @@ func (c *Context) Eval(reader io.Reader) error {
 	parser := newParser(tokens)
 	nodes, err := parser.parse()
 	if err != nil {
-		return err
+		return nil, err
 	}
 	// fmt.Println("Parsed:")
 	// for _, n := range nodes {
@@ -157,12 +161,9 @@ func (c *Context) Eval(reader io.Reader) error {
 	// }
 	v, runtimeErr := c.evalNodes(nodes)
 	if runtimeErr != nil {
-		return runtimeErr
+		return nil, runtimeErr
 	}
-	if v != nil {
-		fmt.Println(v)
-	}
-	return nil
+	return v, nil
 }
 
 func incompatibleError(op tokKind, left, right Value, position pos) *runtimeError {
@@ -262,15 +263,13 @@ func (c *Context) evalExpr(node astNode, sc scope) (Value, *runtimeError) {
 }
 
 func (c *Context) evalNodes(nodes []astNode) (Value, *runtimeError) {
-	var returnVal Value = nil
+	var returnValue Value = nil
 	var err *runtimeError
 	for _, expr := range nodes {
-		returnVal, err = c.evalExpr(expr, c.scope)
-		// fmt.Println(returnVal)
+		returnValue, err = c.evalExpr(expr, c.scope)
 		if err != nil {
 			return nil, err
 		}
 	}
-	return returnVal, nil
-
+	return returnValue, nil
 }

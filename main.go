@@ -14,10 +14,13 @@ func runFile(filePath string) {
 	defer file.Close()
 	c := NewContext()
 	c.LoadBuiltins()
-	err = c.Eval(file)
+	v, err := c.Eval(file)
 	if err != nil {
 		fmt.Println(err)
 		os.Exit(1)
+	}
+	if v != nil {
+		fmt.Println(v)
 	}
 }
 
