@@ -141,6 +141,8 @@ func (p *parser) parseUnit() (astNode, error) {
 		return p.parseNumberLiteral(tok)
 	case trueLiteral:
 		return boolNode{payload: true, tok: &tok}, nil
+	case stringLiteral:
+		return stringNode{payload: tok.payload, tok: &tok}, nil
 	case falseLiteral:
 		return boolNode{payload: false, tok: &tok}, nil
 	case identifier:
@@ -179,7 +181,7 @@ func (p *parser) parseNode() (astNode, error) {
 		switch p.peek().kind {
 		case assign:
 			return p.parseAssignment(node)
-		case plus, minus, times, divide:
+		case plus, minus, times, divide, plusString:
 			// TODO: add: and, or, greater, less, eq, geq, leq, neq:
 			return p.parseBinaryOP(node)
 		default:

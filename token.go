@@ -54,6 +54,7 @@ const (
 	// binary operators
 	// TODO: remove this, and let the standard lib handle this
 	plus
+	plusString
 	minus
 	times
 	divide
@@ -111,6 +112,8 @@ func (t token) String() string {
 		return ":"
 	case plus:
 		return "+"
+	case plusString:
+		return "++"
 	case minus:
 		return "-"
 	case times:
@@ -242,6 +245,22 @@ func (t *tokenizer) readValidIdentifier() string {
 	return string(accumulator)
 }
 
+func (t *tokenizer) readValidString() string {
+	accumulator := []rune{}
+	for {
+		if t.isEOF() {
+			break
+		}
+		c := t.next()
+		if c == '"' {
+			break
+		} else {
+			accumulator = append(accumulator, c)
+		}
+	}
+	return string(accumulator)
+}
+
 func (t *tokenizer) readValidNumeral() string {
 	sawDot := false
 	accumulator := []rune{}
@@ -295,9 +314,21 @@ func (t *tokenizer) nextToken() token {
 		}
 		return token{kind: assign, pos: t.currentPos()}
 	case '+':
+		if !t.isEOF() && t.peek() == '+' {
+			t.next()
+			return token{kind: plusString, pos: t.currentPos()}
+		}
 		return token{kind: plus, pos: t.currentPos()}
 	case '-':
 		return token{kind: minus, pos: t.currentPos()}
+	case '"':
+		pos := t.currentPos()
+		val := t.readValidString()
+		return token{
+			kind:    stringLiteral,
+			pos:     pos,
+			payload: val,
+		}
 	case '/':
 		if !t.isEOF() && t.peek() == '/' {
 			pos := t.currentPos()

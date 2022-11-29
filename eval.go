@@ -112,13 +112,13 @@ func (v FloatValue) Eq(u Value) bool {
 
 type StringValue []byte
 
-func (v *StringValue) String() string {
-	return fmt.Sprintf("\"%s\"", string(*v))
+func (v StringValue) String() string {
+	return string(v)
 }
 
-func (v *StringValue) Eq(u Value) bool {
-	if w, ok := u.(*StringValue); ok {
-		return bytes.Equal(*v, *w)
+func (v StringValue) Eq(u Value) bool {
+	if w, ok := u.(StringValue); ok {
+		return bytes.Equal(v, w)
 	}
 	return false
 }
@@ -185,6 +185,16 @@ func intBinaryOp(op tokKind, left IntValue, right IntValue) (Value, *runtimeErro
 	}
 }
 
+func stringBinaryOp(op tokKind, left StringValue, right StringValue) (Value, *runtimeError) {
+	switch op {
+	case plusString:
+		x := append(left, right...)
+		return StringValue(x), nil
+	default:
+		return nil, incompatibleError(op, left, right, pos{})
+	}
+}
+
 func (c *Context) evalBinaryNode(n binaryNode, sc scope) (Value, *runtimeError) {
 	leftComputed, err := c.evalExpr(n.left, sc)
 	if err != nil {
@@ -200,6 +210,7 @@ func (c *Context) evalBinaryNode(n binaryNode, sc scope) (Value, *runtimeError) 
 	// TODO: add neq (!=)
 	switch left := leftComputed.(type) {
 	case IntValue:
+		// TODO: uncomment to support float binary operations for float values
 		right, ok := rightComputed.(IntValue)
 		if !ok {
 			// rightFloat, ok := rightComputed.(FloatValue)
@@ -220,6 +231,16 @@ func (c *Context) evalBinaryNode(n binaryNode, sc scope) (Value, *runtimeError) 
 			err.pos = n.pos()
 		}
 		return val, err
+	case StringValue:
+		right, ok := rightComputed.(StringValue)
+		if !ok {
+			return nil, incompatibleError(n.op, leftComputed, rightComputed, n.pos())
+		}
+		val, err := stringBinaryOp(n.op, left, right)
+		if err != nil {
+			err.pos = n.pos()
+		}
+		return val, err
 	default:
 		return nil, &runtimeError{
 			reason: fmt.Sprintf("Binary operator %s is not defined for values %s, %s",
@@ -235,6 +256,8 @@ func (c *Context) evalExpr(node astNode, sc scope) (Value, *runtimeError) {
 		return IntValue(n.payload), nil
 	case floatNode:
 		return FloatValue(n.payload), nil
+	case stringNode:
+		return StringValue(n.payload), nil
 	case binaryNode:
 		return c.evalBinaryNode(n, sc)
 	case identifierNode:

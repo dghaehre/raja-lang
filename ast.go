@@ -60,6 +60,18 @@ func (n identifierNode) pos() pos {
 	return n.tok.pos
 }
 
+type stringNode struct {
+	payload string
+	tok     *token
+}
+
+func (n stringNode) String() string {
+	return n.payload
+}
+func (n stringNode) pos() pos {
+	return n.tok.pos
+}
+
 // TODO: isLocal
 type assignmentNode struct {
 	left  astNode
