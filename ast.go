@@ -1,7 +1,9 @@
 package main
 
 import (
+	"fmt"
 	"strconv"
+	"strings"
 )
 
 type astNode interface {
@@ -98,5 +100,22 @@ func (n binaryNode) String() string {
 	return "(" + n.left.String() + " " + opTok.String() + " " + n.right.String() + ")"
 }
 func (n binaryNode) pos() pos {
+	return n.tok.pos
+}
+
+type fnCallNode struct {
+	fn   astNode
+	args []astNode
+	tok  *token
+}
+
+func (n fnCallNode) String() string {
+	argStrings := make([]string, len(n.args))
+	for i, arg := range n.args {
+		argStrings[i] = arg.String()
+	}
+	return fmt.Sprintf("fncall[%s](%s)", n.fn, strings.Join(argStrings, ", "))
+}
+func (n fnCallNode) pos() pos {
 	return n.tok.pos
 }

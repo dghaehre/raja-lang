@@ -154,7 +154,10 @@ func (p *parser) parseUnit() (astNode, error) {
 	}
 }
 
-// Used for unary and binary expressions. Sits between parseUnit and parseNode.
+// Used for:
+// - unary and binary expressions.
+// - function calls
+// Sits between parseUnit and parseNode.
 func (p *parser) parseSubNode() (astNode, error) {
 	node, err := p.parseUnit()
 	if err != nil {
@@ -163,6 +166,26 @@ func (p *parser) parseSubNode() (astNode, error) {
 
 	for !p.isEOF() {
 		switch p.peek().kind {
+		case leftParen: // Function call
+			next := p.next() // eat the leftParen
+			args := []astNode{}
+			for !p.isEOF() && p.peek().kind != rightParen {
+				arg, err := p.parseNode()
+				if err != nil {
+					return nil, err
+				}
+				args = append(args, arg)
+			}
+			if _, err := p.expect(rightParen); err != nil {
+				return nil, err
+			}
+			// Setting the "node" from parseUnit as the function caller
+			// and we are only parsing the arguments here
+			node = fnCallNode{
+				fn:   node,
+				args: args,
+				tok:  &next,
+			}
 		default:
 			return node, nil
 		}

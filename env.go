@@ -2,7 +2,7 @@ package main
 
 import (
 	"fmt"
-  "os"
+	"os"
 )
 
 type builtinFn func([]Value) (Value, *runtimeError)
@@ -13,7 +13,7 @@ type BuiltinFnValue struct {
 }
 
 func (v BuiltinFnValue) String() string {
-	return fmt.Sprintf("function %s => <native>", v.name)
+	return fmt.Sprintf("<native function> %s", v.name)
 }
 func (v BuiltinFnValue) Eq(u Value) bool {
 	if w, ok := u.(BuiltinFnValue); ok {
@@ -24,6 +24,7 @@ func (v BuiltinFnValue) Eq(u Value) bool {
 
 func (c *Context) LoadBuiltins() {
 	c.LoadFunc("print", c.rajaPrint)
+	c.LoadFunc("string", c.rajaString)
 }
 
 func (c *Context) LoadFunc(name string, fn builtinFn) {
@@ -44,18 +45,30 @@ func (c *Context) requireArgLen(fnName string, args []Value, count int) *runtime
 
 // Builtin functions
 
+func (c *Context) rajaString(args []Value) (Value, *runtimeError) {
+	if err := c.requireArgLen("string", args, 1); err != nil {
+		return nil, err
+	}
+	switch arg := args[0].(type) {
+	case *StringValue:
+		return arg, nil
+	default:
+		return StringValue(arg.String()), nil
+	}
+}
+
 func (c *Context) rajaPrint(args []Value) (Value, *runtimeError) {
 	if err := c.requireArgLen("print", args, 1); err != nil {
 		return nil, err
 	}
 
-	outputString, ok := args[0].(*StringValue)
+	outputString, ok := args[0].(StringValue)
 	if !ok {
 		return nil, &runtimeError{
 			reason: fmt.Sprintf("Unexpected argument to print: %s", args[0]),
 		}
 	}
 
-	n, _ := os.Stdout.Write(*outputString)
+	n, _ := os.Stdout.Write(outputString)
 	return IntValue(n), nil
 }

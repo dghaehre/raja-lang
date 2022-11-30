@@ -2,4 +2,4 @@
 a = 10
 b = 20
 
-a + b
+print(string(a + b))

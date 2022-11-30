@@ -55,3 +55,11 @@ func TestHelloWorld(t *testing.T) {
   h ++ w`
 	expectProgramToReturn(t, p, StringValue([]byte("hello world!")))
 }
+
+func TestPrint(t *testing.T) {
+	p := `
+  hello = "hello world!" 
+  print(hello)
+  `
+	expectProgramToReturn(t, p, IntValue(12))
+}

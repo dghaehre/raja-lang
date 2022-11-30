@@ -250,6 +250,32 @@ func (c *Context) evalBinaryNode(n binaryNode, sc scope) (Value, *runtimeError) 
 	}
 }
 
+func (c *Context) evalFnCallNode(n fnCallNode, sc scope) (Value, *runtimeError) {
+	leftComputed, err := c.evalExpr(n.fn, sc)
+	if err != nil {
+		return nil, err
+	}
+	switch left := leftComputed.(type) {
+	// TODO: add all type of functions
+	case BuiltinFnValue:
+		args := make([]Value, 0, len(n.args))
+		for _, a := range n.args {
+			v, err := c.evalExpr(a, sc)
+			if err != nil {
+				return nil, err
+			}
+			args = append(args, v)
+		}
+		return left.fn(args)
+	default:
+		return nil, &runtimeError{
+			// TODO: improve error message
+			reason: fmt.Sprintf("Cannot call function from %s.", leftComputed),
+			pos:    n.pos(),
+		}
+	}
+}
+
 func (c *Context) evalExpr(node astNode, sc scope) (Value, *runtimeError) {
 	switch n := node.(type) {
 	case intNode:
@@ -281,6 +307,8 @@ func (c *Context) evalExpr(node astNode, sc scope) (Value, *runtimeError) {
 				pos:    n.pos(),
 			}
 		}
+	case fnCallNode:
+		return c.evalFnCallNode(n, sc)
 	}
 	panic(fmt.Sprintf("Unexpected astNode type: %s", node))
 }
