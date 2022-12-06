@@ -103,6 +103,20 @@ func (n binaryNode) pos() pos {
 	return n.tok.pos
 }
 
+type fnNode struct {
+	args []string // TODO: type checking!
+	body astNode
+	tok  *token
+}
+
+func (n fnNode) String() string {
+	return fmt.Sprintf("(%s) => %s", strings.Join(n.args, ", "), n.body.String())
+}
+
+func (n fnNode) pos() pos {
+	return n.tok.pos
+}
+
 type fnCallNode struct {
 	fn   astNode
 	args []astNode

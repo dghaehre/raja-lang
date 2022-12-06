@@ -13,7 +13,7 @@ type BuiltinFnValue struct {
 }
 
 func (v BuiltinFnValue) String() string {
-	return fmt.Sprintf("<native function> %s", v.name)
+	return fmt.Sprintf("<native function %s>", v.name)
 }
 func (v BuiltinFnValue) Eq(u Value) bool {
 	if w, ok := u.(BuiltinFnValue); ok {

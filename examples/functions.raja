@@ -1,6 +1,10 @@
 // this is a comment
-some_func = (x) => 10
+// multiline_func = (x) => {
+//   x + 1
+// }
 
-multiline_func = (x) => {
-  x + 1
-}
+multiline_func = (x) => x + 1
+
+res = multiline_func(2)
+
+print(string(res))

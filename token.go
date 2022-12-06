@@ -198,12 +198,12 @@ func (t *tokenizer) next() rune {
 	if t.index < len(t.source) {
 		t.index++
 	}
-	// if char == '\n' {
-	// t.line++
-	// 	t.col = 0
-	// } else {
-	t.col++
-	// }
+	if char == '\n' {
+		t.line++
+		t.col = 0
+	} else {
+		t.col++
+	}
 	return char
 }
 

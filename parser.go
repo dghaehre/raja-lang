@@ -57,6 +57,15 @@ func (p *parser) back() {
 	}
 }
 
+func (p *parser) readUntilTokenKind(kind tokKind) []token {
+	tokens := []token{}
+	for !p.isEOF() && p.peek().kind != kind {
+		t := p.next()
+		tokens = append(tokens, t)
+	}
+	return tokens
+}
+
 func (p *parser) expect(kind tokKind) (token, error) {
 	tok := token{kind: kind}
 	if p.isEOF() {
@@ -147,6 +156,36 @@ func (p *parser) parseUnit() (astNode, error) {
 		return boolNode{payload: false, tok: &tok}, nil
 	case identifier:
 		return identifierNode{payload: tok.payload, tok: &tok}, nil
+	case leftParen:
+		// This might be the start of a function!
+		// might have to backtrack incase this is not a function..
+		tokens := p.readUntilTokenKind(rightParen)
+		p.next() // eat right paren
+		// Its a function!
+		if p.peek().kind == fnArrow {
+			p.next() // eat arrow
+			args := []string{}
+			for _, t := range tokens {
+				// TODO: make sure they are all "identifiers"
+				args = append(args, t.String())
+			}
+			body, err := p.parseNode()
+			if err != nil {
+				return nil, err
+			}
+
+			return fnNode{
+				args: args,
+				body: body,
+				tok:  &tok,
+			}, nil
+		} else {
+			// TODO: parse (..)
+			return nil, parseError{
+				reason: fmt.Sprintf("Unhandled.."),
+				pos:    tok.pos,
+			}
+		}
 	}
 	return nil, parseError{
 		reason: fmt.Sprintf("Unexpected token %s at start of unit", tok),
@@ -227,5 +266,6 @@ func (p *parser) parse() ([]astNode, error) {
 		// }
 		nodes = append(nodes, node)
 	}
+
 	return nodes, nil
 }

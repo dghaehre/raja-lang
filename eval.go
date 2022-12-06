@@ -123,6 +123,22 @@ func (v StringValue) Eq(u Value) bool {
 	return false
 }
 
+type FnValue struct {
+	fn *fnNode
+	scope
+}
+
+func (v FnValue) String() string {
+	return v.fn.String()
+}
+
+func (v FnValue) Eq(u Value) bool {
+	if w, ok := u.(FnValue); ok {
+		return v.fn == w.fn
+	}
+	return false
+}
+
 // Scope
 
 // Put variable into scope
@@ -131,13 +147,17 @@ func (sc *scope) put(name string, v Value) {
 }
 
 func (sc *scope) get(name string) (Value, *runtimeError) {
-	v, ok := sc.vars[name]
-	if !ok {
-		return nil, &runtimeError{
-			reason: fmt.Sprintf("%s is undefined", name),
-		}
+	fmt.Printf("getting %s: %s\n", name, sc.vars)
+	if v, ok := sc.vars[name]; ok {
+		fmt.Printf("returning: %s \n", v)
+		return v, nil
 	}
-	return v, nil
+	if sc.parent != nil {
+		return sc.parent.get(name)
+	}
+	return nil, &runtimeError{
+		reason: fmt.Sprintf("%s is undefined", name),
+	}
 }
 
 // Eval
@@ -250,26 +270,38 @@ func (c *Context) evalBinaryNode(n binaryNode, sc scope) (Value, *runtimeError) 
 	}
 }
 
-func (c *Context) evalFnCallNode(n fnCallNode, sc scope) (Value, *runtimeError) {
+func (c *Context) evalFnCallNode(n fnCallNode, sc scope, args []Value) (Value, *runtimeError) {
 	leftComputed, err := c.evalExpr(n.fn, sc)
 	if err != nil {
 		return nil, err
 	}
 	switch left := leftComputed.(type) {
-	// TODO: add all type of functions
 	case BuiltinFnValue:
-		args := make([]Value, 0, len(n.args))
-		for _, a := range n.args {
-			v, err := c.evalExpr(a, sc)
-			if err != nil {
-				return nil, err
-			}
-			args = append(args, v)
-		}
 		return left.fn(args)
+	case FnValue:
+		// Takes the scope from outside of the defined function.
+
+		// Dette burde vel ikke settes her?
+		// dette burde vel sette
+		fnScope := scope{
+			parent: &left.scope,
+			vars:   map[string]Value{},
+		}
+		for i, argName := range left.fn.args {
+			if argName != "" {
+				fmt.Printf("argname: %+v\n", argName)
+        // TODO: this string is wrong
+				fnScope.put(argName, args[i])
+			}
+		}
+		fmt.Printf("scope stuff: ------\n")
+		fmt.Printf("%+v\n", sc.vars)
+		fmt.Printf("%+v\n", &left.scope.vars)
+		fmt.Printf("setting fnscope: %+v\n", fnScope.vars)
+		fmt.Printf("------\n")
+		return c.evalExpr(left.fn.body, fnScope)
 	default:
 		return nil, &runtimeError{
-			// TODO: improve error message
 			reason: fmt.Sprintf("Cannot call function from %s.", leftComputed),
 			pos:    n.pos(),
 		}
@@ -308,7 +340,21 @@ func (c *Context) evalExpr(node astNode, sc scope) (Value, *runtimeError) {
 			}
 		}
 	case fnCallNode:
-		return c.evalFnCallNode(n, sc)
+		args := make([]Value, 0, len(n.args))
+		for _, a := range n.args {
+			v, err := c.evalExpr(a, sc)
+			if err != nil {
+				return nil, err
+			}
+			args = append(args, v)
+		}
+		return c.evalFnCallNode(n, sc, args)
+	case fnNode:
+		fmt.Println(&n)
+		return FnValue{
+			fn:    &n,
+			scope: sc,
+		}, nil
 	}
 	panic(fmt.Sprintf("Unexpected astNode type: %s", node))
 }
