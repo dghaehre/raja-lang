@@ -147,9 +147,7 @@ func (sc *scope) put(name string, v Value) {
 }
 
 func (sc *scope) get(name string) (Value, *runtimeError) {
-	fmt.Printf("getting %s: %s\n", name, sc.vars)
 	if v, ok := sc.vars[name]; ok {
-		fmt.Printf("returning: %s \n", v)
 		return v, nil
 	}
 	if sc.parent != nil {
@@ -280,25 +278,15 @@ func (c *Context) evalFnCallNode(n fnCallNode, sc scope, args []Value) (Value, *
 		return left.fn(args)
 	case FnValue:
 		// Takes the scope from outside of the defined function.
-
-		// Dette burde vel ikke settes her?
-		// dette burde vel sette
 		fnScope := scope{
 			parent: &left.scope,
 			vars:   map[string]Value{},
 		}
 		for i, argName := range left.fn.args {
 			if argName != "" {
-				fmt.Printf("argname: %+v\n", argName)
-        // TODO: this string is wrong
 				fnScope.put(argName, args[i])
 			}
 		}
-		fmt.Printf("scope stuff: ------\n")
-		fmt.Printf("%+v\n", sc.vars)
-		fmt.Printf("%+v\n", &left.scope.vars)
-		fmt.Printf("setting fnscope: %+v\n", fnScope.vars)
-		fmt.Printf("------\n")
 		return c.evalExpr(left.fn.body, fnScope)
 	default:
 		return nil, &runtimeError{
@@ -350,7 +338,6 @@ func (c *Context) evalExpr(node astNode, sc scope) (Value, *runtimeError) {
 		}
 		return c.evalFnCallNode(n, sc, args)
 	case fnNode:
-		fmt.Println(&n)
 		return FnValue{
 			fn:    &n,
 			scope: sc,

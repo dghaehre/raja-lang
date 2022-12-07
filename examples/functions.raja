@@ -3,8 +3,8 @@
 //   x + 1
 // }
 
-multiline_func = (x) => x + 1
+add = (a b) => a + b
 
-res = multiline_func(2)
+add_one = (x) => add(1 x)
 
-print(string(res))
+print(string(add_one(2)))

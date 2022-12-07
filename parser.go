@@ -167,7 +167,7 @@ func (p *parser) parseUnit() (astNode, error) {
 			args := []string{}
 			for _, t := range tokens {
 				// TODO: make sure they are all "identifiers"
-				args = append(args, t.String())
+				args = append(args, t.payload)
 			}
 			body, err := p.parseNode()
 			if err != nil {

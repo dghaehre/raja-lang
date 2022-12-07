@@ -104,7 +104,7 @@ func (n binaryNode) pos() pos {
 }
 
 type fnNode struct {
-	args []string // TODO: type checking!
+	args []string
 	body astNode
 	tok  *token
 }
