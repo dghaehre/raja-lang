@@ -150,3 +150,19 @@ func (n fnCallNode) String() string {
 func (n fnCallNode) pos() pos {
 	return n.tok.pos
 }
+
+type listNode struct {
+	elems []astNode
+	tok   *token
+}
+
+func (n listNode) String() string {
+	elemStrings := make([]string, len(n.elems))
+	for i, el := range n.elems {
+		elemStrings[i] = el.String()
+	}
+	return "[" + strings.Join(elemStrings, ", ") + "]"
+}
+func (n listNode) pos() pos {
+	return n.tok.pos
+}

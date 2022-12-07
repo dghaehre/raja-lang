@@ -123,6 +123,24 @@ func (v StringValue) Eq(u Value) bool {
 	return false
 }
 
+type ListValue []Value
+
+func (v *ListValue) String() string {
+	stringValues := make([]string, len(*v))
+	for i, s := range *v {
+		stringValues[i] = s.String()
+	}
+	return fmt.Sprintf("[%s]", strings.Join(stringValues, " "))
+}
+
+func (v *ListValue) Eq(u Value) bool {
+	if _, ok := u.(*ListValue); ok {
+		// TODO
+		return true
+	}
+	return false
+}
+
 type FnValue struct {
 	fn *fnNode
 	scope
@@ -351,6 +369,17 @@ func (c *Context) evalExpr(node astNode, sc scope) (Value, *runtimeError) {
 			}
 		}
 		return c.evalExpr(n.exprs[last], blockScope)
+	case listNode:
+		var err *runtimeError
+		elems := make([]Value, len(n.elems))
+		for i, elNode := range n.elems {
+			elems[i], err = c.evalExpr(elNode, sc)
+			if err != nil {
+				return nil, err
+			}
+		}
+		list := ListValue(elems)
+		return &list, nil
 	case fnNode:
 		return FnValue{
 			fn:    &n,

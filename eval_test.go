@@ -63,3 +63,24 @@ func TestPrint(t *testing.T) {
   `
 	expectProgramToReturn(t, p, IntValue(12))
 }
+
+func TestFunctions(t *testing.T) {
+	p := `
+multiline_func = (x f) => {
+  y = x
+  f(y 1)
+}
+add = (a b) => a + b
+add_one = (x) => multiline_func(x add)
+add_one(1)
+  `
+	expectProgramToReturn(t, p, IntValue(2))
+}
+
+// TODO
+// func TestList(t *testing.T) {
+// 	p := `
+//   list = [1 2 "3"]
+//   `
+// 	expectProgramToReturn(t, p, &ListValue{IntValue(1), IntValue(2)})
+// }
