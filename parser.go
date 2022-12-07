@@ -186,6 +186,24 @@ func (p *parser) parseUnit() (astNode, error) {
 				pos:    tok.pos,
 			}
 		}
+	case leftBrace:
+		firstExpr, err := p.parseNode()
+		if err != nil {
+			return nil, err
+		}
+		nodes := []astNode{firstExpr}
+		for !p.isEOF() && p.peek().kind != rightBrace {
+			node, err := p.parseNode()
+			if err != nil {
+				return nil, err
+			}
+			nodes = append(nodes, node)
+		}
+		p.next() // eat rightBrace
+		return blockNode{
+			exprs: nodes,
+			tok:   &tok,
+		}, nil
 	}
 	return nil, parseError{
 		reason: fmt.Sprintf("Unexpected token %s at start of unit", tok),

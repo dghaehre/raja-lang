@@ -103,6 +103,23 @@ func (n binaryNode) pos() pos {
 	return n.tok.pos
 }
 
+type blockNode struct {
+	exprs []astNode
+	tok   *token
+}
+
+func (n blockNode) String() string {
+	exprStrings := make([]string, len(n.exprs))
+	for i, ex := range n.exprs {
+		exprStrings[i] = ex.String()
+	}
+	return "{ " + strings.Join(exprStrings, ", ") + " }"
+}
+
+func (n blockNode) pos() pos {
+	return n.tok.pos
+}
+
 type fnNode struct {
 	args []string
 	body astNode

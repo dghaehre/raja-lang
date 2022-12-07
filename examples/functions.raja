@@ -1,10 +1,16 @@
 // this is a comment
-// multiline_func = (x) => {
-//   x + 1
-// }
+multiline_func = (x f) => {
+  y = x
+  f(y 1)
+}
 
 add = (a b) => a + b
 
-add_one = (x) => add(1 x)
+add_one = (x) => multiline_func(x add)
 
-print(string(add_one(2)))
+main = () => {
+  x = add_one(1)
+  print("x is: " ++ string(x))
+}
+
+main()

@@ -337,6 +337,20 @@ func (c *Context) evalExpr(node astNode, sc scope) (Value, *runtimeError) {
 			args = append(args, v)
 		}
 		return c.evalFnCallNode(n, sc, args)
+	case blockNode:
+		blockScope := scope{
+			parent: &sc,
+			vars:   map[string]Value{},
+		}
+
+		last := len(n.exprs) - 1
+		for _, expr := range n.exprs[:last] {
+			_, err := c.evalExpr(expr, blockScope)
+			if err != nil {
+				return nil, err
+			}
+		}
+		return c.evalExpr(n.exprs[last], blockScope)
 	case fnNode:
 		return FnValue{
 			fn:    &n,
