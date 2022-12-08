@@ -71,6 +71,9 @@ func (v IntValue) String() string {
 }
 
 func (v IntValue) Eq(u Value) bool {
+	if _, ok := u.(UnderscoreValue); ok {
+		return true
+	}
 	if w, ok := u.(IntValue); ok {
 		return v == w
 	} else if w, ok := u.(FloatValue); ok {
@@ -90,6 +93,9 @@ func (v BoolValue) String() string {
 }
 
 func (v BoolValue) Eq(u Value) bool {
+	if _, ok := u.(UnderscoreValue); ok {
+		return true
+	}
 	if w, ok := u.(BoolValue); ok {
 		return v == w
 	}
@@ -102,6 +108,9 @@ func (v FloatValue) String() string {
 	return strconv.FormatFloat(float64(v), 'g', -1, 64)
 }
 func (v FloatValue) Eq(u Value) bool {
+	if _, ok := u.(UnderscoreValue); ok {
+		return true
+	}
 	if w, ok := u.(FloatValue); ok {
 		return v == w
 	} else if w, ok := u.(IntValue); ok {
@@ -117,6 +126,9 @@ func (v StringValue) String() string {
 }
 
 func (v StringValue) Eq(u Value) bool {
+	if _, ok := u.(UnderscoreValue); ok {
+		return true
+	}
 	if w, ok := u.(StringValue); ok {
 		return bytes.Equal(v, w)
 	}
@@ -134,6 +146,9 @@ func (v *ListValue) String() string {
 }
 
 func (v *ListValue) Eq(u Value) bool {
+	if _, ok := u.(UnderscoreValue); ok {
+		return true
+	}
 	if _, ok := u.(*ListValue); ok {
 		// TODO
 		return true
@@ -151,10 +166,25 @@ func (v FnValue) String() string {
 }
 
 func (v FnValue) Eq(u Value) bool {
+	if _, ok := u.(UnderscoreValue); ok {
+		return true
+	}
 	if w, ok := u.(FnValue); ok {
 		return v.fn == w.fn
 	}
 	return false
+}
+
+type UnderscoreValue byte
+
+// interned "empty" value
+const underscorevalue UnderscoreValue = 0
+
+func (v UnderscoreValue) String() string {
+	return "_"
+}
+func (v UnderscoreValue) Eq(u Value) bool {
+	return true
 }
 
 // Scope
@@ -314,6 +344,26 @@ func (c *Context) evalFnCallNode(n fnCallNode, sc scope, args []Value) (Value, *
 	}
 }
 
+func (c *Context) evalMatchNode(n matchNode, sc scope) (Value, *runtimeError) {
+	cond, err := c.evalExpr(n.cond, sc)
+	if err != nil {
+		return nil, err
+	}
+	for _, v := range n.branches {
+		t, err := c.evalExpr(v.target, sc)
+		if err != nil {
+			return nil, err
+		}
+		if cond.Eq(t) {
+			return c.evalExpr(v.body, sc)
+		}
+	}
+	return nil, &runtimeError{
+		reason: fmt.Sprintf("No patterns matched in match expression: %s", n.String()),
+		pos:    n.pos(),
+	}
+}
+
 func (c *Context) evalExpr(node astNode, sc scope) (Value, *runtimeError) {
 	switch n := node.(type) {
 	case intNode:
@@ -322,8 +372,14 @@ func (c *Context) evalExpr(node astNode, sc scope) (Value, *runtimeError) {
 		return FloatValue(n.payload), nil
 	case stringNode:
 		return StringValue(n.payload), nil
+	case underscoreNode:
+		return underscorevalue, nil
 	case binaryNode:
 		return c.evalBinaryNode(n, sc)
+	case boolNode:
+		return BoolValue(n.payload), nil
+	case matchNode:
+		return c.evalMatchNode(n, sc)
 	case identifierNode:
 		val, err := sc.get(n.payload)
 		if err != nil {

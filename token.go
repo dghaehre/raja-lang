@@ -43,6 +43,7 @@ const (
 	rightBrace
 	assign
 	fnArrow
+	branchArrow
 	colon
 
 	// indent stuff
@@ -108,6 +109,8 @@ func (t token) String() string {
 		return "="
 	case fnArrow:
 		return "=>"
+	case branchArrow:
+		return "->"
 	case colon:
 		return ":"
 	case plus:
@@ -320,6 +323,10 @@ func (t *tokenizer) nextToken() token {
 		}
 		return token{kind: plus, pos: t.currentPos()}
 	case '-':
+		if !t.isEOF() && t.peek() == '>' {
+			t.next()
+			return token{kind: branchArrow, pos: t.currentPos()}
+		}
 		return token{kind: minus, pos: t.currentPos()}
 	case '"':
 		pos := t.currentPos()

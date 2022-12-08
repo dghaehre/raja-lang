@@ -154,6 +154,8 @@ func (p *parser) parseUnit() (astNode, error) {
 		return stringNode{payload: tok.payload, tok: &tok}, nil
 	case falseLiteral:
 		return boolNode{payload: false, tok: &tok}, nil
+	case underscore:
+		return underscoreNode{tok: &tok}, nil
 	case identifier:
 		return identifierNode{payload: tok.payload, tok: &tok}, nil
 	case leftParen:
@@ -182,10 +184,75 @@ func (p *parser) parseUnit() (astNode, error) {
 		} else {
 			// TODO: parse (..)
 			return nil, parseError{
-				reason: fmt.Sprintf("Unhandled.."),
+				reason: fmt.Sprintf("(..) is for now unhandled.."),
 				pos:    tok.pos,
 			}
 		}
+
+	case matchKeyword:
+		var cond astNode
+		branches := []matchBranch{}
+		// if no explicit condition is provided (i.e. if the keyword is
+		// followed by a { ... }), we assume the condition is "true" to allow
+		// for the useful `if { case, case ... }` pattern.
+		var err error
+		if p.peek().kind == leftBrace {
+			cond = boolNode{
+				payload: true,
+				tok:     &tok,
+			}
+		} else {
+			cond, err = p.parseNode()
+			if err != nil {
+				return nil, err
+			}
+		}
+
+		_, err = p.expect(leftBrace)
+		if err != nil {
+			return nil, err
+		}
+
+		for !p.isEOF() && p.peek().kind != rightBrace {
+			targets := []astNode{}
+			for !p.isEOF() && p.peek().kind != branchArrow {
+				// You can separatte multiple targets "within" a branch.
+				// It just really desugars to multiple targets with the same body.
+				target, err := p.parseNode()
+				if err != nil {
+					return nil, err
+				}
+
+				targets = append(targets, target)
+			}
+
+			if _, err := p.expect(branchArrow); err != nil {
+				return nil, err
+			}
+
+			body, err := p.parseNode()
+			if err != nil {
+				return nil, err
+			}
+
+			for _, target := range targets {
+				branches = append(branches, matchBranch{
+					target: target,
+					body:   body,
+				})
+			}
+		}
+
+		if _, err := p.expect(rightBrace); err != nil {
+			return nil, err
+		}
+
+		return matchNode{
+			cond:     cond,
+			branches: branches,
+			tok:      &tok,
+		}, nil
+
 	case leftBrace:
 		firstExpr, err := p.parseNode()
 		if err != nil {
@@ -204,6 +271,7 @@ func (p *parser) parseUnit() (astNode, error) {
 			exprs: nodes,
 			tok:   &tok,
 		}, nil
+
 	case leftBracket:
 		nodes := []astNode{}
 		for !p.isEOF() && p.peek().kind != rightBracket {

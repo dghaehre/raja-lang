@@ -62,6 +62,17 @@ func (n identifierNode) pos() pos {
 	return n.tok.pos
 }
 
+type underscoreNode struct {
+	tok *token
+}
+
+func (n underscoreNode) String() string {
+	return "_"
+}
+func (n underscoreNode) pos() pos {
+	return n.tok.pos
+}
+
 type stringNode struct {
 	payload string
 	tok     *token
@@ -164,5 +175,33 @@ func (n listNode) String() string {
 	return "[" + strings.Join(elemStrings, ", ") + "]"
 }
 func (n listNode) pos() pos {
+	return n.tok.pos
+}
+
+// Special in the sense that it is not a node.
+type matchBranch struct {
+	target astNode // the "pattern" to match. Maybe I should do something fancy here later
+	body   astNode
+}
+
+func (n matchBranch) String() string {
+	return n.target.String() + " -> " + n.body.String()
+}
+
+type matchNode struct {
+	cond     astNode
+	branches []matchBranch
+	tok      *token
+}
+
+func (n matchNode) String() string {
+	branchStrings := make([]string, len(n.branches))
+	for i, br := range n.branches {
+		branchStrings[i] = br.String()
+	}
+	return "match " + n.cond.String() + " {" + strings.Join(branchStrings, " ") + "}"
+}
+
+func (n matchNode) pos() pos {
 	return n.tok.pos
 }
