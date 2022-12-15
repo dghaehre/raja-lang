@@ -149,8 +149,15 @@ func (v *ListValue) Eq(u Value) bool {
 	if _, ok := u.(UnderscoreValue); ok {
 		return true
 	}
-	if _, ok := u.(*ListValue); ok {
-		// TODO
+	if uu, ok := u.(*ListValue); ok {
+		if len(*v) != len(*uu) {
+			return false
+		}
+		for i := 0; i < len(*v); i++ {
+			if !(*v)[i].Eq((*uu)[i]) {
+				return false
+			}
+		}
 		return true
 	}
 	return false

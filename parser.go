@@ -287,6 +287,11 @@ func (p *parser) parseUnit() (astNode, error) {
 				return nil, err
 			}
 			nodes = append(nodes, node)
+			if p.peek().kind == comma {
+				p.next()
+			} else {
+				break
+			}
 		}
 		p.next() // eat rightBracket
 		return listNode{
