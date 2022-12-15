@@ -1,4 +1,4 @@
-// this is a comment
+# This is a comment
 hello = "hello world"
 
 print(hello)

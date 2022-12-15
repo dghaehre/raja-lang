@@ -88,7 +88,7 @@ type token struct {
 func (t token) String() string {
 	switch t.kind {
 	case comment:
-		return fmt.Sprintf("//(%s)", t.payload)
+		return fmt.Sprintf("#(%s)", t.payload)
 	case comma:
 		return ","
 	case dot:
@@ -337,17 +337,17 @@ func (t *tokenizer) nextToken() token {
 			payload: val,
 		}
 	case '/':
-		if !t.isEOF() && t.peek() == '/' {
-			pos := t.currentPos()
-			t.next()
-			commentString := strings.TrimSpace(t.readUntilRune('\n'))
-			return token{
-				kind:    comment,
-				pos:     pos,
-				payload: commentString,
-			}
-		}
 		return token{kind: divide, pos: t.currentPos()}
+	case '#':
+		pos := t.currentPos()
+		t.next()
+		commentString := strings.TrimSpace(t.readUntilRune('\n'))
+		return token{
+			kind:    comment,
+			pos:     pos,
+			payload: commentString,
+		}
+
 	case '0', '1', '2', '3', '4', '5', '6', '7', '8', '9':
 		pos := t.currentPos()
 		payload := string(c) + t.readValidNumeral()
@@ -405,6 +405,8 @@ func (t *tokenizer) tokenize() []token {
 			t.next()
 		}
 	}
+
+	fmt.Println(tokens)
 
 	return tokens
 }

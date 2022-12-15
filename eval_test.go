@@ -33,9 +33,9 @@ func TestVariablesAndAddition(t *testing.T) {
 
 func TestComments(t *testing.T) {
 	p := `
-  // this is a comment
+  # this is a comment
   test = 10
-  // some other comment
+  # some other comment
   `
 	expectProgramToReturn(t, p, IntValue(10))
 }
