@@ -169,7 +169,10 @@ func (p *parser) parseUnit() (astNode, error) {
 			args := []string{}
 			for _, t := range tokens {
 				// TODO: make sure they are all "identifiers"
-				args = append(args, t.payload)
+				if t.kind != comma {
+					// We dont handle commas yet..
+					args = append(args, t.payload)
+				}
 			}
 			body, err := p.parseNode()
 			if err != nil {
@@ -222,8 +225,12 @@ func (p *parser) parseUnit() (astNode, error) {
 				if err != nil {
 					return nil, err
 				}
-
 				targets = append(targets, target)
+				if p.peek().kind == comma {
+					p.next()
+				} else {
+					break
+				}
 			}
 
 			if _, err := p.expect(branchArrow); err != nil {
@@ -314,6 +321,11 @@ func (p *parser) parseSubNode() (astNode, error) {
 					return nil, err
 				}
 				args = append(args, arg)
+				if p.peek().kind == comma {
+					p.next()
+				} else {
+					break
+				}
 			}
 			if _, err := p.expect(rightParen); err != nil {
 				return nil, err
@@ -339,7 +351,7 @@ func (p *parser) parseNode() (astNode, error) {
 		return nil, err
 	}
 
-	for !p.isEOF() && p.peek().kind != indentEndStatment {
+	for !p.isEOF() {
 		switch p.peek().kind {
 		case assign:
 			return p.parseAssignment(node)

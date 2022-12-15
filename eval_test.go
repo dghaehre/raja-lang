@@ -66,12 +66,12 @@ func TestPrint(t *testing.T) {
 
 func TestFunctions(t *testing.T) {
 	p := `
-multiline_func = (x f) => {
+multiline_func = (x, f) => {
   y = x
-  f(y 1)
+  f(y, 1)
 }
-add = (a b) => a + b
-add_one = (x) => multiline_func(x add)
+add = (a, b) => a + b
+add_one = (x) => multiline_func(x, add)
 add_one(1)
   `
 	expectProgramToReturn(t, p, IntValue(2))

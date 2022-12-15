@@ -1,6 +1,6 @@
 
 match_func = (x) => match x {
-  1 2 3 -> "there is one, two or three"
+  1, 2, 3 -> "there is one, two or three"
   _     -> "there is none :("
 }
 

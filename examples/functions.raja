@@ -1,12 +1,12 @@
 # this is a comment
-multiline_func = (x f) => {
+multiline_func = (x, f) => {
   y = x
   f(y, 1)
 }
 
-add = (a b) => a + b
+add = (a, b) => a + b
 
-add_one = (x) => multiline_func(x add)
+add_one = (x) => multiline_func(x, add)
 
 main = () => {
   x = add_one(1)

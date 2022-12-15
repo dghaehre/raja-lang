@@ -406,7 +406,5 @@ func (t *tokenizer) tokenize() []token {
 		}
 	}
 
-	fmt.Println(tokens)
-
 	return tokens
 }
