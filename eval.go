@@ -247,12 +247,27 @@ func incompatibleError(op tokKind, left, right Value, position pos) *runtimeErro
 	}
 }
 
+func floatBinaryOp(op tokKind, left FloatValue, right FloatValue) (Value, *runtimeError) {
+	switch op {
+	case minus:
+		return FloatValue(left - right), nil
+	case plus:
+		return FloatValue(left + right), nil
+	case times:
+		return FloatValue(left * right), nil
+	default:
+		return nil, incompatibleError(op, left, right, pos{})
+	}
+}
+
 func intBinaryOp(op tokKind, left IntValue, right IntValue) (Value, *runtimeError) {
 	switch op {
 	case minus:
 		return IntValue(left - right), nil
 	case plus:
 		return IntValue(left + right), nil
+	case times:
+		return IntValue(left * right), nil
 	default:
 		return nil, incompatibleError(op, left, right, pos{})
 	}
@@ -280,23 +295,42 @@ func (c *Context) evalBinaryNode(n binaryNode, sc scope) (Value, *runtimeError) 
 	if n.op == eq {
 		return BoolValue(leftComputed.Eq(rightComputed)), nil
 	}
-	// TODO: add neq (!=)
 	switch left := leftComputed.(type) {
+	case FloatValue:
+		right, ok := rightComputed.(FloatValue)
+		if !ok {
+			rightFloat, ok := rightComputed.(IntValue)
+			if !ok {
+				return nil, incompatibleError(n.op, leftComputed, rightComputed, n.pos())
+			}
+
+			right := FloatValue(float64(int64(rightFloat)))
+			val, err := floatBinaryOp(n.op, left, right)
+			if err != nil {
+				err.pos = n.pos()
+			}
+			return val, err
+		}
+
+		val, err := floatBinaryOp(n.op, left, right)
+		if err != nil {
+			err.pos = n.pos()
+		}
+		return val, err
 	case IntValue:
-		// TODO: uncomment to support float binary operations for float values
 		right, ok := rightComputed.(IntValue)
 		if !ok {
-			// rightFloat, ok := rightComputed.(FloatValue)
-			// if !ok {
-			return nil, incompatibleError(n.op, leftComputed, rightComputed, n.pos())
-			// }
-			//
-			// leftFloat := FloatValue(float64(int64(left)))
-			// val, err := floatBinaryOp(n.op, leftFloat, rightFloat)
-			// if err != nil {
-			// 	err.pos = n.pos()
-			// }
-			// return val, err
+			rightFloat, ok := rightComputed.(FloatValue)
+			if !ok {
+				return nil, incompatibleError(n.op, leftComputed, rightComputed, n.pos())
+			}
+
+			leftFloat := FloatValue(float64(int64(left)))
+			val, err := floatBinaryOp(n.op, leftFloat, rightFloat)
+			if err != nil {
+				err.pos = n.pos()
+			}
+			return val, err
 		}
 
 		val, err := intBinaryOp(n.op, left, right)

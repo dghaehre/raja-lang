@@ -31,6 +31,14 @@ func TestVariablesAndAddition(t *testing.T) {
 	expectProgramToReturn(t, p, IntValue(20))
 }
 
+func TestBinaryFloat(t *testing.T) {
+	p := `
+  test = 10.0
+  x = 10.0
+  test * x`
+	expectProgramToReturn(t, p, FloatValue(100))
+}
+
 func TestComments(t *testing.T) {
 	p := `
   # this is a comment

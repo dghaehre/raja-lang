@@ -322,6 +322,8 @@ func (t *tokenizer) nextToken() token {
 			return token{kind: plusString, pos: t.currentPos()}
 		}
 		return token{kind: plus, pos: t.currentPos()}
+	case '*':
+		return token{kind: times, pos: t.currentPos()}
 	case '-':
 		if !t.isEOF() && t.peek() == '>' {
 			t.next()
