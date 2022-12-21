@@ -1,0 +1,12 @@
+add = (a, b) => a + b
+
+make_pretty = (s) => "The answer is: " ++ s
+
+one = 1
+
+one
+  .add(1)
+  .add(1)
+  .string()
+  .make_pretty()
+  .print()

@@ -121,6 +121,37 @@ func (p *parser) parseBinaryOP(left astNode) (astNode, error) {
 	return node, nil
 }
 
+// Syntactic sugar for piping functions together
+//
+// res = one.add(1)
+// turns into
+// res = add(one, 1)
+func (p *parser) parseBinaryDot(left astNode) (astNode, error) {
+	next := p.next() // eat the dot
+
+	subNode, err := p.parseSubNode()
+	if err != nil {
+		return nil, err
+	}
+
+	// Setting left as first argument in fnCallNode
+	switch callNode := subNode.(type) {
+	case fnCallNode:
+		args := []astNode{left}
+		if len(callNode.args) > 0 {
+			args = append(args, callNode.args...)
+		}
+		callNode.args = args
+		return callNode, nil
+
+	default:
+		return nil, parseError{
+			reason: fmt.Sprintf("Expected a callNode, got: %s", callNode),
+			pos:    next.pos,
+		}
+	}
+}
+
 func (p *parser) parseNumberLiteral(tok token) (astNode, error) {
 	if strings.ContainsRune(tok.payload, '.') {
 		f, err := strconv.ParseFloat(tok.payload, 64)
@@ -361,7 +392,20 @@ func (p *parser) parseNode() (astNode, error) {
 			return p.parseAssignment(node)
 		case plus, minus, times, divide, plusString:
 			// TODO: add: and, or, greater, less, eq, geq, leq, neq:
-			return p.parseBinaryOP(node)
+			//
+			// We keep looping here because we want to adhere to order of operations.
+			// Which means that there might be more binary operations coming, and we need to catch them here.
+			node, err = p.parseBinaryOP(node)
+			if err != nil {
+				return nil, err
+			}
+		case dot:
+			// We keep looping here because we want to adhere to order of operations.
+			// Which means that there might be more binary operations coming, and we need to catch them here.
+			node, err = p.parseBinaryDot(node)
+			if err != nil {
+				return nil, err
+			}
 		default:
 			return node, nil
 		}

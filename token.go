@@ -290,6 +290,8 @@ func (t *tokenizer) nextToken() token {
 	switch c {
 	case ',':
 		return token{kind: comma, pos: t.currentPos()}
+	case '.':
+		return token{kind: dot, pos: t.currentPos()}
 	case '(':
 		return token{kind: leftParen, pos: t.currentPos()}
 	case ')':

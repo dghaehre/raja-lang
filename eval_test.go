@@ -99,3 +99,20 @@ func TestList(t *testing.T) {
   `
 	expectProgramToReturn(t, p, &ListValue{IntValue(1), IntValue(2), StringValue("3")})
 }
+
+func TestBinaryDot(t *testing.T) {
+	p := `
+add = (a, b) => a + b
+
+make_pretty = (s) => "The answer is: " ++ s
+
+one = 1
+
+one
+  .add(1)
+  .add(1)
+  .string()
+  .make_pretty()
+  `
+  expectProgramToReturn(t, p, StringValue("The answer is: 3"))
+}
