@@ -7,16 +7,14 @@ import (
 )
 
 type parser struct {
-	tokens        []token
-	index         int
-	minBinaryPrec []int
+	tokens []token
+	index  int
 }
 
 func newParser(tokens []token) parser {
 	return parser{
-		tokens:        tokens,
-		index:         0,
-		minBinaryPrec: []int{0}, // ?
+		tokens: tokens,
+		index:  0,
 	}
 }
 
@@ -105,6 +103,7 @@ func (p *parser) parseAssignment(left astNode) (astNode, error) {
 	return node, nil
 }
 
+// Does NOT recursively parse the right tree.
 func (p *parser) parseBinaryOP(left astNode) (astNode, error) {
 	// NOTE: maybe add a double check for op actually being a BinaryToken
 	op := p.next()
@@ -114,7 +113,7 @@ func (p *parser) parseBinaryOP(left astNode) (astNode, error) {
 		tok:  &op,
 	}
 
-	right, err := p.parseNode()
+	right, err := p.parseUnit()
 	if err != nil {
 		return nil, err
 	}

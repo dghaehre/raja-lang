@@ -1,0 +1,6 @@
+
+res = 1 + 2 * 3
+# is the same as:
+# res = (1 + 2) * 3
+
+print(string(res))

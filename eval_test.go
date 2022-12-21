@@ -85,6 +85,14 @@ add_one(1)
 	expectProgramToReturn(t, p, IntValue(2))
 }
 
+
+func TestOrderOfOperations(t *testing.T) {
+	p := `
+  res = 1 + 2 * 3
+  `
+	expectProgramToReturn(t, p, IntValue(9))
+}
+
 func TestList(t *testing.T) {
 	p := `
   list = [1, 2, "3"]
