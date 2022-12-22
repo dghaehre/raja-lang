@@ -74,12 +74,12 @@ func (n underscoreNode) pos() pos {
 }
 
 type stringNode struct {
-	payload string
+	payload []byte
 	tok     *token
 }
 
 func (n stringNode) String() string {
-	return n.payload
+	return fmt.Sprintf("%s", strconv.Quote(string(n.payload)))
 }
 func (n stringNode) pos() pos {
 	return n.tok.pos
