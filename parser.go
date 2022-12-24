@@ -56,6 +56,35 @@ func (p *parser) back() {
 	}
 }
 
+// When we find '(', it might be the start of a function:
+// (a) => {}
+// or it might be
+// (1 + 2)
+// just grouping an expression.
+//
+// This function assumes that we are at '(', and looks ahead to see if we
+// are in a function or just '(1 + 2)'
+func (p *parser) isStartOfFunction() (isFunction bool) {
+	i := 0
+	for {
+		if p.index+i > len(p.tokens) {
+			return isFunction
+		}
+
+		tok := p.tokens[p.index+i]
+		switch tok.kind {
+		case rightParen:
+			next := p.tokens[p.index+i+1]
+			return next.kind == fnArrow
+		case identifier, comma:
+			i++
+			continue
+		default:
+			return isFunction
+		}
+	}
+}
+
 func (p *parser) readUntilTokenKind(kind tokKind) []token {
 	tokens := []token{}
 	for !p.isEOF() && p.peek().kind != kind {
@@ -174,6 +203,36 @@ func (p *parser) parseNumberLiteral(tok token) (astNode, error) {
 	}, nil
 }
 
+func (p *parser) parseFunction(tok token) (astNode, error) {
+	tokens := p.readUntilTokenKind(rightParen)
+	p.next() // eat right paren
+	if p.peek().kind != fnArrow {
+		return nil, parseError{
+			reason: fmt.Sprintf("Expected =>, got %s", p.peek()),
+			pos:    tok.pos,
+		}
+	}
+	p.next() // eat arrow
+	args := []string{}
+	for _, t := range tokens {
+		// p.isStartOfFunction makes sure we only have identifiers or commas here
+		if t.kind != comma {
+			// We dont handle commas yet..
+			args = append(args, t.payload)
+		}
+	}
+	body, err := p.parseNode()
+	if err != nil {
+		return nil, err
+	}
+
+	return fnNode{
+		args: args,
+		body: body,
+		tok:  &tok,
+	}, nil
+}
+
 func (p *parser) parseUnit() (astNode, error) {
 	tok := p.next()
 	switch tok.kind {
@@ -232,38 +291,18 @@ func (p *parser) parseUnit() (astNode, error) {
 	case identifier:
 		return identifierNode{payload: tok.payload, tok: &tok}, nil
 	case leftParen:
-		// This might be the start of a function!
-		// might have to backtrack incase this is not a function..
-		tokens := p.readUntilTokenKind(rightParen)
-		p.next() // eat right paren
-		// Its a function!
-		if p.peek().kind == fnArrow {
-			p.next() // eat arrow
-			args := []string{}
-			for _, t := range tokens {
-				// TODO: make sure they are all "identifiers"
-				if t.kind != comma {
-					// We dont handle commas yet..
-					args = append(args, t.payload)
-				}
-			}
-			body, err := p.parseNode()
-			if err != nil {
-				return nil, err
-			}
-
-			return fnNode{
-				args: args,
-				body: body,
-				tok:  &tok,
-			}, nil
-		} else {
-			// TODO: parse (..)
-			return nil, parseError{
-				reason: fmt.Sprintf("(..) is for now unhandled.."),
-				pos:    tok.pos,
-			}
+		if p.isStartOfFunction() {
+			return p.parseFunction(tok)
 		}
+		node, err := p.parseNode()
+		if err != nil {
+			return nil, err
+		}
+		_, err = p.expect(rightParen)
+		if err != nil {
+			return nil, err
+		}
+		return node, nil
 
 	case matchKeyword:
 		var cond astNode

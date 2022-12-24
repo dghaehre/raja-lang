@@ -116,3 +116,10 @@ one
   `
   expectProgramToReturn(t, p, StringValue("The answer is: 3"))
 }
+
+func TestParens(t *testing.T) {
+	p := `
+  res = 1 + (1 * 3)
+  `
+	expectProgramToReturn(t, p, IntValue(4))
+}
