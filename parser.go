@@ -472,7 +472,7 @@ func (p *parser) parseNode() (astNode, error) {
 		switch p.peek().kind {
 		case assign:
 			return p.parseAssignment(node)
-		case plus, minus, times, divide, plusString:
+		case plus, minus, times, divide, plusOther:
 			// TODO: add: and, or, greater, less, eq, geq, leq, neq:
 			//
 			// We keep looping here because we want to adhere to order of operations.

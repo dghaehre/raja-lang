@@ -55,7 +55,7 @@ const (
 	// binary operators
 	// TODO: remove this, and let the standard lib handle this
 	plus
-	plusString
+	plusOther
 	minus
 	times
 	divide
@@ -115,7 +115,7 @@ func (t token) String() string {
 		return ":"
 	case plus:
 		return "+"
-	case plusString:
+	case plusOther:
 		return "++"
 	case minus:
 		return "-"
@@ -321,7 +321,7 @@ func (t *tokenizer) nextToken() token {
 	case '+':
 		if !t.isEOF() && t.peek() == '+' {
 			t.next()
-			return token{kind: plusString, pos: t.currentPos()}
+			return token{kind: plusOther, pos: t.currentPos()}
 		}
 		return token{kind: plus, pos: t.currentPos()}
 	case '*':

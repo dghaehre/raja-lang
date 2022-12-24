@@ -275,9 +275,20 @@ func intBinaryOp(op tokKind, left IntValue, right IntValue) (Value, *runtimeErro
 
 func stringBinaryOp(op tokKind, left StringValue, right StringValue) (Value, *runtimeError) {
 	switch op {
-	case plusString:
+	case plusOther:
 		x := append(left, right...)
 		return StringValue(x), nil
+	default:
+		return nil, incompatibleError(op, left, right, pos{})
+	}
+}
+
+func listBinaryOp(op tokKind, left *ListValue, right *ListValue) (Value, *runtimeError) {
+	switch op {
+	case plusOther:
+		x := append(*left, *right...)
+		newlist := ListValue(x)
+		return &newlist, nil
 	default:
 		return nil, incompatibleError(op, left, right, pos{})
 	}
@@ -296,6 +307,25 @@ func (c *Context) evalBinaryNode(n binaryNode, sc scope) (Value, *runtimeError) 
 		return BoolValue(leftComputed.Eq(rightComputed)), nil
 	}
 	switch left := leftComputed.(type) {
+	case *ListValue:
+		right, ok := rightComputed.(*ListValue)
+		if !ok {
+			switch x := rightComputed.(type) {
+			case IntValue, FloatValue, StringValue: // TODO: extend
+				elem := make([]Value, 1)
+				elem[0] = x
+				l := ListValue(elem)
+				right = &l
+			default:
+				return nil, incompatibleError(n.op, leftComputed, rightComputed, n.pos())
+			}
+		}
+		val, err := listBinaryOp(n.op, left, right)
+		if err != nil {
+			err.pos = n.pos()
+		}
+		return val, err
+
 	case FloatValue:
 		right, ok := rightComputed.(FloatValue)
 		if !ok {
