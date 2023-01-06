@@ -123,3 +123,14 @@ func TestParens(t *testing.T) {
   `
 	expectProgramToReturn(t, p, IntValue(4))
 }
+
+func TestMatch(t *testing.T) {
+	p := `
+	match_func = (a) => match a {
+		1 -> "yes"
+		_ -> "no"
+	}
+	match_func(1)
+  `
+	expectProgramToReturn(t, p, StringValue("yes"))
+}
