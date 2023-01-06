@@ -142,7 +142,7 @@ func (v *ListValue) String() string {
 	for i, s := range *v {
 		stringValues[i] = s.String()
 	}
-	return fmt.Sprintf("[%s]", strings.Join(stringValues, " "))
+	return fmt.Sprintf("[%s]", strings.Join(stringValues, ", "))
 }
 
 func (v *ListValue) Eq(u Value) bool {

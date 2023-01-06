@@ -25,6 +25,7 @@ func (v BuiltinFnValue) Eq(u Value) bool {
 func (c *Context) LoadBuiltins() {
 	c.LoadFunc("print", c.rajaPrint)
 	c.LoadFunc("string", c.rajaString)
+	c.LoadFunc("get_args", c.rajaGetArgs)
 }
 
 func (c *Context) LoadFunc(name string, fn builtinFn) {
@@ -71,4 +72,13 @@ func (c *Context) rajaPrint(args []Value) (Value, *runtimeError) {
 
 	n, _ := os.Stdout.Write(outputString)
 	return IntValue(n), nil
+}
+
+func (c *Context) rajaGetArgs(_ []Value) (Value, *runtimeError) {
+	goArgs := os.Args
+	args := make(ListValue, len(goArgs))
+	for i, arg := range goArgs {
+		args[i] = StringValue(arg)
+	}
+	return &args, nil
 }
