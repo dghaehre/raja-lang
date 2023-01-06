@@ -1,0 +1,9 @@
+#
+# Base lib for raja
+#
+
+# Print with ending newline
+println = (a) => print(a ++ "\n")
+
+# TODO: create a to_string method for every primtive type
+to_string = (a) => string(a)

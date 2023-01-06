@@ -26,6 +26,11 @@ func (c *Context) LoadBuiltins() {
 	c.LoadFunc("print", c.rajaPrint)
 	c.LoadFunc("string", c.rajaString)
 	c.LoadFunc("get_args", c.rajaGetArgs)
+
+	_, err := c.LoadLib("base")
+	if err != nil {
+		panic(err)
+	}
 }
 
 func (c *Context) LoadFunc(name string, fn builtinFn) {
