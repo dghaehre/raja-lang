@@ -304,6 +304,34 @@ func (p *parser) parseUnit() (astNode, error) {
 		}
 		return node, nil
 
+	case typeKeyword:
+		name, err := p.expect(identifier)
+		if err != nil {
+			return nil, err
+		}
+		_, err = p.expect(assign)
+		if err != nil {
+			return nil, err
+		}
+		body, err := p.parseUnit()
+		if err != nil {
+			return nil, err
+		}
+		targets := []astNode{body}
+		for !p.isEOF() && p.peek().kind == or {
+			_ = p.next() // eat or
+			b, err := p.parseUnit()
+			if err != nil {
+				return nil, err
+			}
+			targets = append(targets, b)
+		}
+		return typeNode{
+			name:    name.payload,
+			targets: targets,
+			tok:     &tok,
+		}, nil
+
 	case matchKeyword:
 		var cond astNode
 		branches := []matchBranch{}

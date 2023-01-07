@@ -507,6 +507,13 @@ func (c *Context) evalExpr(node astNode, sc scope) (Value, *runtimeError) {
 		}
 		list := ListValue(elems)
 		return &list, nil
+	case typeNode:
+		// TODO: put type into scope
+		// sc.put(left.payload, asignedValue)
+
+		// TODO: return nil?
+		return IntValue(0), nil
+
 	case fnNode:
 		return FnValue{
 			fn:    &n,

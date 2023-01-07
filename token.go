@@ -53,7 +53,6 @@ const (
 	indentEndStatment
 
 	// binary operators
-	// TODO: remove this, and let the standard lib handle this
 	plus
 	plusOther
 	minus
@@ -67,6 +66,7 @@ const (
 
 	// keywords
 	matchKeyword
+	typeKeyword
 	singlePipeArrow
 	doublePipeArrow
 
@@ -135,6 +135,8 @@ func (t token) String() string {
 		return "=="
 	case matchKeyword:
 		return "match"
+	case typeKeyword:
+		return "type"
 	case underscore:
 		return "_"
 	case indentOpen:
@@ -292,6 +294,8 @@ func (t *tokenizer) nextToken() token {
 		return token{kind: comma, pos: t.currentPos()}
 	case '.':
 		return token{kind: dot, pos: t.currentPos()}
+	case '|':
+		return token{kind: or, pos: t.currentPos()}
 	case '(':
 		return token{kind: leftParen, pos: t.currentPos()}
 	case ')':
@@ -368,6 +372,8 @@ func (t *tokenizer) nextToken() token {
 			return token{kind: underscore, pos: pos}
 		case "match":
 			return token{kind: matchKeyword, pos: pos}
+		case "type":
+			return token{kind: typeKeyword, pos: pos}
 		case "true":
 			return token{kind: trueLiteral, pos: pos}
 		case "false":
