@@ -5,3 +5,13 @@
 # Print with ending newline
 println = (a) => print(a.string() ++ "\n")
 
+
+# Run function over a, and return a.
+#
+# Useful in pipelines where you want to run IO or similar and want to keep the existing value
+with_identity = (a, f) => {
+	f(a)
+	a
+}
+
+append = (a, b) => a ++ b
