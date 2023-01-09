@@ -1,1 +1,1 @@
-{"version":1,"ops":[{"type":6,"author":{"id":"6ff87a9450499f1ec598b9268159f9b46bcf356e"},"timestamp":1673250127,"target":"76e149e74209048f3b1def88e001f5e6de1304072f6bfb7a597b4b3b897d7474","message":"- [ ] Make eval handle the typeNode\n- [ ] rename typeNode to aliasNode","files":null}]}
+{"version":1,"ops":[{"type":5,"author":{"id":"6ff87a9450499f1ec598b9268159f9b46bcf356e"},"timestamp":1673250482,"added":["refactor"],"removed":null}]}
