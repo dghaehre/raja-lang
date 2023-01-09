@@ -1,0 +1,26 @@
+
+alias Result =
+		"yes"
+	| "no"
+	| "sdfsdf"
+
+mut_x = "hey"
+
+mut_x = "no"
+
+print_result = (res) => match res {
+	"yes" -> println("yeeees")
+	"no"	-> println("noooo")
+	_			-> println("no match")
+}
+
+print_result = (a, b) => println(a)
+
+print_result = (a, b, c) => {
+	res = string(a + b + c)
+	println("this one took 3 parameters with the result of: " ++ res)
+}
+
+print_result("yes")
+print_result("hei", 2)
+print_result(1, 2, 3)

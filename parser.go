@@ -304,7 +304,7 @@ func (p *parser) parseUnit() (astNode, error) {
 		}
 		return node, nil
 
-	case typeKeyword:
+	case aliasKeyword:
 		name, err := p.expect(identifier)
 		if err != nil {
 			return nil, err
@@ -326,7 +326,7 @@ func (p *parser) parseUnit() (astNode, error) {
 			}
 			targets = append(targets, b)
 		}
-		return typeNode{
+		return aliasNode{
 			name:    name.payload,
 			targets: targets,
 			tok:     &tok,

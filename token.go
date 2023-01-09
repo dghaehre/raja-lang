@@ -66,7 +66,7 @@ const (
 
 	// keywords
 	matchKeyword
-	typeKeyword
+  aliasKeyword
 	singlePipeArrow
 	doublePipeArrow
 
@@ -135,8 +135,8 @@ func (t token) String() string {
 		return "=="
 	case matchKeyword:
 		return "match"
-	case typeKeyword:
-		return "type"
+	case aliasKeyword:
+		return "alias"
 	case underscore:
 		return "_"
 	case indentOpen:
@@ -372,8 +372,8 @@ func (t *tokenizer) nextToken() token {
 			return token{kind: underscore, pos: pos}
 		case "match":
 			return token{kind: matchKeyword, pos: pos}
-		case "type":
-			return token{kind: typeKeyword, pos: pos}
+		case "alias":
+			return token{kind: aliasKeyword, pos: pos}
 		case "true":
 			return token{kind: trueLiteral, pos: pos}
 		case "false":

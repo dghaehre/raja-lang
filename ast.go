@@ -206,20 +206,20 @@ func (n matchNode) pos() pos {
 	return n.tok.pos
 }
 
-type typeNode struct {
+type aliasNode struct {
 	name    string
 	targets []astNode
 	tok     *token
 }
 
-func (t typeNode) String() string {
+func (t aliasNode) String() string {
 	targetStrings := make([]string, len(t.targets))
 	for i, target := range t.targets {
 		targetStrings[i] = target.String()
 	}
-	return "type " + t.name + " = " + strings.Join(targetStrings, " | ")
+	return "alias " + t.name + " = " + strings.Join(targetStrings, " | ")
 }
 
-func (t typeNode) pos() pos {
+func (t aliasNode) pos() pos {
 	return t.tok.pos
 }

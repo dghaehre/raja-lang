@@ -54,6 +54,10 @@ func NewContext() Context {
 	}
 }
 
+func isMutable(name string) bool {
+	return strings.HasPrefix(name, "mut_")
+}
+
 // Value
 
 type Value interface {
@@ -163,6 +167,53 @@ func (v *ListValue) Eq(u Value) bool {
 	return false
 }
 
+type AliasValue struct {
+	targets []Value
+	scope
+}
+
+func (a AliasValue) String() string {
+	stringValues := make([]string, len(a.targets))
+	for i, s := range a.targets {
+		stringValues[i] = s.String()
+	}
+	return fmt.Sprintf("alias = %s", strings.Join(stringValues, " | "))
+}
+
+// This might be the function we use to determine if a given "type/alias"
+// matches a value
+func (a AliasValue) Eq(u Value) bool {
+	if _, ok := u.(UnderscoreValue); ok {
+		return true
+	}
+	for _, v := range a.targets {
+		if v.Eq(u) {
+			return true
+		}
+	}
+	return false
+}
+
+// Used to store FnValue's with the same name. (Multiple dispatch)
+//
+// Only used in scope
+type FnValues struct {
+	values []FnValue
+}
+
+func (v FnValues) String() string {
+	stringValues := make([]string, len(v.values))
+	for i, s := range v.values {
+		stringValues[i] = s.String()
+	}
+	return strings.Join(stringValues, ", ")
+}
+
+// NOTE: NOT USED
+func (v FnValues) Eq(u Value) bool {
+	return false
+}
+
 type FnValue struct {
 	fn *fnNode
 	scope
@@ -197,8 +248,42 @@ func (v UnderscoreValue) Eq(u Value) bool {
 // Scope
 
 // Put variable into scope
-func (sc *scope) put(name string, v Value) {
-	sc.vars[name] = v
+func (sc *scope) put(name string, v Value, pos pos) *runtimeError {
+	switch value := v.(type) {
+	case FnValue:
+		scvalue, ok := sc.vars[name]
+		if !ok {
+			sc.vars[name] = FnValues{
+				values: []FnValue{value},
+			}
+			return nil
+		}
+		switch scvalue := scvalue.(type) {
+		case FnValues:
+			scvalue.values = append(scvalue.values, value)
+			sc.vars[name] = scvalue
+			return nil
+		default:
+			return &runtimeError{
+				reason: fmt.Sprintf("Should never happen. expected fnValue, got %s.", scvalue),
+				pos:    pos,
+			}
+		}
+	default:
+		if isMutable(name) {
+			sc.vars[name] = v
+			return nil
+		}
+		_, exist := sc.vars[name]
+		if exist {
+			return &runtimeError{
+				reason: fmt.Sprintf("%s is not mutable.\nTry renaming the variable to mut_%s", name, name),
+				pos:    pos,
+			}
+		}
+		sc.vars[name] = v
+	}
+	return nil
 }
 
 func (sc *scope) get(name string) (Value, *runtimeError) {
@@ -387,6 +472,24 @@ func (c *Context) evalBinaryNode(n binaryNode, sc scope) (Value, *runtimeError) 
 	}
 }
 
+func (c *Context) getCorrectFnValue(n fnCallNode, fnv FnValues, args []Value) (FnValue, *runtimeError) {
+	relevant := Filter(fnv.values, func(f FnValue) bool {
+		if len(f.fn.args) != len(args) {
+			return false
+		}
+		return true
+	})
+
+	if len(relevant) == 0 {
+		return FnValue{}, &runtimeError{
+			reason: fmt.Sprintf("Cannot call function %s with the supplied args.\nThere are %d function(s) named %s in scope, but none matched the parameters used.", n.fn, len(fnv.values), n.fn),
+			pos:    n.pos(),
+		}
+
+	}
+	return relevant[0], nil
+}
+
 func (c *Context) evalFnCallNode(n fnCallNode, sc scope, args []Value) (Value, *runtimeError) {
 	leftComputed, err := c.evalExpr(n.fn, sc)
 	if err != nil {
@@ -395,7 +498,28 @@ func (c *Context) evalFnCallNode(n fnCallNode, sc scope, args []Value) (Value, *
 	switch left := leftComputed.(type) {
 	case BuiltinFnValue:
 		return left.fn(args)
+	case FnValues: // Multiple Dispatch
+		v, err := c.getCorrectFnValue(n, left, args)
+		if err != nil {
+			return nil, err
+		}
+		fnScope := scope{
+			parent: &v.scope,
+			vars:   map[string]Value{},
+		}
+		for i, argName := range v.fn.args {
+			if argName != "" {
+				err := fnScope.put(argName, args[i], n.pos())
+				if err != nil {
+					return nil, err
+				}
+			}
+		}
+		return c.evalExpr(v.fn.body, fnScope)
 	case FnValue:
+		// Not sure if this will ever happen?
+		// Stays here just in case for now..
+
 		// Takes the scope from outside of the defined function.
 		fnScope := scope{
 			parent: &left.scope,
@@ -403,7 +527,10 @@ func (c *Context) evalFnCallNode(n fnCallNode, sc scope, args []Value) (Value, *
 		}
 		for i, argName := range left.fn.args {
 			if argName != "" {
-				fnScope.put(argName, args[i])
+				err := fnScope.put(argName, args[i], n.pos())
+				if err != nil {
+					return nil, err
+				}
 			}
 		}
 		return c.evalExpr(left.fn.body, fnScope)
@@ -464,8 +591,8 @@ func (c *Context) evalExpr(node astNode, sc scope) (Value, *runtimeError) {
 		}
 		switch left := n.left.(type) {
 		case identifierNode:
-			sc.put(left.payload, assignedValue)
-			return assignedValue, nil
+			err := sc.put(left.payload, assignedValue, n.pos())
+			return assignedValue, err
 		default:
 			return nil, &runtimeError{
 				reason: fmt.Sprintf("Invalid assignment target %s", left.String()),
@@ -507,13 +634,21 @@ func (c *Context) evalExpr(node astNode, sc scope) (Value, *runtimeError) {
 		}
 		list := ListValue(elems)
 		return &list, nil
-	case typeNode:
-		// TODO: put type into scope
-		// sc.put(left.payload, asignedValue)
-
-		// TODO: return nil?
-		return IntValue(0), nil
-
+	case aliasNode:
+		var err *runtimeError
+		elems := make([]Value, len(n.targets))
+		for i, elNode := range n.targets {
+			elems[i], err = c.evalExpr(elNode, sc)
+			if err != nil {
+				return nil, err
+			}
+		}
+		alias := AliasValue{
+			targets: elems,
+			scope:   sc,
+		}
+		err = sc.put(n.name, alias, n.pos())
+		return alias, err
 	case fnNode:
 		return FnValue{
 			fn:    &n,

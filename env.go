@@ -37,7 +37,7 @@ func (c *Context) LoadFunc(name string, fn builtinFn) {
 	c.scope.put(name, BuiltinFnValue{
 		name: name,
 		fn:   fn,
-	})
+	}, pos{})
 }
 
 func (c *Context) requireArgLen(fnName string, args []Value, count int) *runtimeError {

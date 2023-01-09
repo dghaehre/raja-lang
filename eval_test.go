@@ -85,7 +85,6 @@ add_one(1)
 	expectProgramToReturn(t, p, IntValue(2))
 }
 
-
 func TestOrderOfOperations(t *testing.T) {
 	p := `
   res = 1 + 2 * 3
@@ -114,7 +113,7 @@ one
   .string()
   .make_pretty()
   `
-  expectProgramToReturn(t, p, StringValue("The answer is: 3"))
+	expectProgramToReturn(t, p, StringValue("The answer is: 3"))
 }
 
 func TestParens(t *testing.T) {
@@ -134,3 +133,22 @@ func TestMatch(t *testing.T) {
   `
 	expectProgramToReturn(t, p, StringValue("yes"))
 }
+
+// func TestAliasAndMultipleDispatch(t *testing.T) {
+// 	p := `
+// 	alias Result =
+// 			"yes"
+// 		| "no"
+// 		| "sdfsdf"
+// 	
+// 	get_result = (res:Result) => match res {
+// 		"yes" -> "yeeees"
+// 		"no"	-> "noooo"
+// 	}
+// 	
+// 	get_result = (a) => "wrong function"
+//
+// 	get_result("yes")
+// 	`
+// 	expectProgramToReturn(t, p, StringValue("yeeees"))
+// }
