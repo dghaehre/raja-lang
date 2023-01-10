@@ -131,14 +131,26 @@ func (n blockNode) pos() pos {
 	return n.tok.pos
 }
 
+type Arg struct {
+	name  string
+	alias string // optional
+}
+
+func (a Arg) String() string {
+	if a.alias == "" {
+		return a.name
+	}
+	return fmt.Sprintf("%s:%s", a.name, a.alias)
+}
+
 type fnNode struct {
-	args []string
+	args []Arg
 	body astNode
 	tok  *token
 }
 
 func (n fnNode) String() string {
-	return fmt.Sprintf("(%s) => %s", strings.Join(n.args, ", "), n.body.String())
+	return fmt.Sprintf("(%s) => %s", StringsJoin(n.args, ", "), n.body.String())
 }
 
 func (n fnNode) pos() pos {

@@ -134,21 +134,29 @@ func TestMatch(t *testing.T) {
 	expectProgramToReturn(t, p, StringValue("yes"))
 }
 
-// func TestAliasAndMultipleDispatch(t *testing.T) {
-// 	p := `
-// 	alias Result =
-// 			"yes"
-// 		| "no"
-// 		| "sdfsdf"
-// 	
-// 	get_result = (res:Result) => match res {
-// 		"yes" -> "yeeees"
-// 		"no"	-> "noooo"
-// 	}
-// 	
-// 	get_result = (a) => "wrong function"
-//
-// 	get_result("yes")
-// 	`
-// 	expectProgramToReturn(t, p, StringValue("yeeees"))
-// }
+func TestMutableVariable(t *testing.T) {
+	p := `
+  mut_x = 1
+  mut_x = 2
+  mut_x
+  `
+	expectProgramToReturn(t, p, IntValue(2))
+}
+
+func TestAliasAndMultipleDispatch(t *testing.T) {
+	p := `
+	alias SomeEnum =
+			"yes"
+		| "no"
+	
+	get_result = (res:SomeEnum) => match res {
+		"yes" -> "yeeees"
+		"no"	-> "noooo"
+	}
+	
+	get_result = (a) => a
+
+	[get_result("yes"), get_result("sdff")]
+	`
+	expectProgramToReturn(t, p, &ListValue{StringValue("yeeees"), StringValue("sdff")})
+}

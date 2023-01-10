@@ -64,11 +64,11 @@ func (p *parser) back() {
 //
 // This function assumes that we are at '(', and looks ahead to see if we
 // are in a function or just '(1 + 2)'
-func (p *parser) isStartOfFunction() (isFunction bool) {
+func (p *parser) isStartOfFunction() bool {
 	i := 0
 	for {
 		if p.index+i > len(p.tokens) {
-			return isFunction
+			return false
 		}
 
 		tok := p.tokens[p.index+i]
@@ -76,11 +76,11 @@ func (p *parser) isStartOfFunction() (isFunction bool) {
 		case rightParen:
 			next := p.tokens[p.index+i+1]
 			return next.kind == fnArrow
-		case identifier, comma:
+		case identifier, comma, colon:
 			i++
 			continue
 		default:
-			return isFunction
+			return false
 		}
 	}
 }
@@ -213,14 +213,27 @@ func (p *parser) parseFunction(tok token) (astNode, error) {
 		}
 	}
 	p.next() // eat arrow
-	args := []string{}
-	for _, t := range tokens {
-		// p.isStartOfFunction makes sure we only have identifiers or commas here
-		if t.kind != comma {
-			// We dont handle commas yet..
-			args = append(args, t.payload)
+
+	args := []Arg{}
+	groupedTokens := SplitTokensBy(tokens, comma)
+	for _, paramToken := range groupedTokens {
+		if len(paramToken) == 2 { // makes no sense..
+			return nil, parseError{
+				reason: "Check your parameters..",
+				pos:    tok.pos,
+			}
 		}
+		if len(paramToken) == 1 { // No type given
+			args = append(args, Arg{name: paramToken[0].payload})
+			continue
+		}
+		// type/alias given
+		args = append(args, Arg{
+			name:  paramToken[0].payload,
+			alias: paramToken[2].payload,
+		})
 	}
+
 	body, err := p.parseNode()
 	if err != nil {
 		return nil, err

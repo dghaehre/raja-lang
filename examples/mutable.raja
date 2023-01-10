@@ -1,0 +1,12 @@
+# To be able to mutate a variable, you need to prefix the variable with mut_
+
+x = 1
+
+# x = 2
+# ^ this will throw error
+
+mut_y = 1
+
+mut_y = 2
+
+println("This does work:", mut_y)

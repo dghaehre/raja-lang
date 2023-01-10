@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"fmt"
 	"io"
+	"sort"
 	"strconv"
 	"strings"
 )
@@ -209,10 +210,24 @@ func (v FnValues) String() string {
 	return strings.Join(stringValues, ", ")
 }
 
-// NOTE: NOT USED
+// NOTE: NOT CURRENTLY USED
 func (v FnValues) Eq(u Value) bool {
 	return false
 }
+
+// Implementing sort for FnValues
+// Putting the most 'specific' function at [0], regardless of how many arguments a given function have.
+type MostSpecific []FnValue
+
+func (fv MostSpecific) Len() int { return len(fv) }
+
+// Currently only sorting by which function that has the most 'aliases'
+func (fv MostSpecific) Less(i, j int) bool {
+	x := len(Filter(fv[i].fn.args, HasAlias))
+	y := len(Filter(fv[j].fn.args, HasAlias))
+	return x > y
+}
+func (fv MostSpecific) Swap(i, j int) { fv[i], fv[j] = fv[j], fv[i] }
 
 type FnValue struct {
 	fn *fnNode
@@ -473,20 +488,44 @@ func (c *Context) evalBinaryNode(n binaryNode, sc scope) (Value, *runtimeError) 
 }
 
 func (c *Context) getCorrectFnValue(n fnCallNode, fnv FnValues, args []Value) (FnValue, *runtimeError) {
+
+	// Filter out functions that does not 'pass' as possible alternatives
+	var filterError *runtimeError
 	relevant := Filter(fnv.values, func(f FnValue) bool {
 		if len(f.fn.args) != len(args) {
 			return false
 		}
+		if len(args) == 0 {
+			return true
+		}
+		for i := 0; i < len(args); i++ {
+			if f.fn.args[i].alias == "" {
+				continue
+			}
+			v, err := c.scope.get(f.fn.args[i].alias)
+			if err != nil {
+				filterError = err
+				return false
+			}
+			if !v.Eq(args[i]) {
+				return false
+
+			}
+		}
 		return true
 	})
+	if filterError != nil {
+		return FnValue{}, filterError
+	}
 
 	if len(relevant) == 0 {
 		return FnValue{}, &runtimeError{
 			reason: fmt.Sprintf("Cannot call function %s with the supplied args.\nThere are %d function(s) named %s in scope, but none matched the parameters used.", n.fn, len(fnv.values), n.fn),
 			pos:    n.pos(),
 		}
-
 	}
+
+	sort.Sort(MostSpecific(relevant))
 	return relevant[0], nil
 }
 
@@ -507,9 +546,9 @@ func (c *Context) evalFnCallNode(n fnCallNode, sc scope, args []Value) (Value, *
 			parent: &v.scope,
 			vars:   map[string]Value{},
 		}
-		for i, argName := range v.fn.args {
-			if argName != "" {
-				err := fnScope.put(argName, args[i], n.pos())
+		for i, a := range v.fn.args {
+			if a.name != "" {
+				err := fnScope.put(a.name, args[i], n.pos())
 				if err != nil {
 					return nil, err
 				}
@@ -525,9 +564,9 @@ func (c *Context) evalFnCallNode(n fnCallNode, sc scope, args []Value) (Value, *
 			parent: &left.scope,
 			vars:   map[string]Value{},
 		}
-		for i, argName := range left.fn.args {
-			if argName != "" {
-				err := fnScope.put(argName, args[i], n.pos())
+		for i, a := range left.fn.args {
+			if a.name != "" {
+				err := fnScope.put(a.name, args[i], n.pos())
 				if err != nil {
 					return nil, err
 				}

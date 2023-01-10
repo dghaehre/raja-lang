@@ -66,7 +66,7 @@ const (
 
 	// keywords
 	matchKeyword
-  aliasKeyword
+	aliasKeyword
 	singlePipeArrow
 	doublePipeArrow
 
@@ -312,6 +312,8 @@ func (t *tokenizer) nextToken() token {
 		return token{kind: leftBrace, pos: t.currentPos()}
 	case '}':
 		return token{kind: rightBrace, pos: t.currentPos()}
+	case ':':
+		return token{kind: colon, pos: t.currentPos()}
 	case '=':
 		if !t.isEOF() && t.peek() == '>' {
 			t.next()

@@ -3,7 +3,19 @@
 #
 
 # Print with ending newline
+println = () => print("\n")
 println = (a) => print(a.string() ++ "\n")
+println = (a, b) => {
+	as = a.string()
+	bs = b.string()
+	print(as ++ " " ++ bs ++ "\n")
+}
+println = (a, b, c) => {
+	as = a.string()
+	bs = b.string()
+	cs = c.string()
+	print(as ++ " " ++ bs ++ " " ++ cs ++ "\n")
+}
 
 
 # Run function over a, and return a.
@@ -15,3 +27,30 @@ with_identity = (a, f) => {
 }
 
 append = (a, b) => a ++ b
+
+
+#
+# Types
+#
+
+
+# Result type
+
+alias Result =
+		["ok", _]
+	| ["error", _]
+
+# Maybe type
+
+alias Maybe =
+		["some", _]
+	| ["none"]
+
+
+# Smaller types
+
+alias Tuple = [_, _]
+
+alias Bool = false | true
+
+# alias Num = 
