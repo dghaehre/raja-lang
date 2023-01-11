@@ -355,6 +355,10 @@ func floatBinaryOp(op tokKind, left FloatValue, right FloatValue) (Value, *runti
 		return FloatValue(left + right), nil
 	case times:
 		return FloatValue(left * right), nil
+	case eq:
+		return BoolValue(left == right), nil
+	case neq:
+		return BoolValue(left != right), nil
 	default:
 		return nil, incompatibleError(op, left, right, pos{})
 	}
@@ -368,6 +372,10 @@ func intBinaryOp(op tokKind, left IntValue, right IntValue) (Value, *runtimeErro
 		return IntValue(left + right), nil
 	case times:
 		return IntValue(left * right), nil
+	case eq:
+		return BoolValue(left == right), nil
+	case neq:
+		return BoolValue(left != right), nil
 	default:
 		return nil, incompatibleError(op, left, right, pos{})
 	}
@@ -378,6 +386,10 @@ func stringBinaryOp(op tokKind, left StringValue, right StringValue) (Value, *ru
 	case plusOther:
 		x := append(left, right...)
 		return StringValue(x), nil
+	case eq:
+		return BoolValue(string(left) == string(right)), nil
+	case neq:
+		return BoolValue(string(left) != string(right)), nil
 	default:
 		return nil, incompatibleError(op, left, right, pos{})
 	}

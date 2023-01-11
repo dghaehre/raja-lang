@@ -2,7 +2,15 @@
 # Base lib for raja
 #
 
-# Print with ending newline
+# Wrapping builtin functions so that they can be overloaded.
+# (builtin) functions cannot be overloaded.
+
+string = (a) => __string(a)
+print = (a) => __print(a)
+get_args = (a) => __args(a)
+
+# Print with ending newline.
+# Also stringyfies arguments
 println = () => print("\n")
 println = (a) => print(a.string() ++ "\n")
 println = (a, b) => {
@@ -28,6 +36,8 @@ with_identity = (a, f) => {
 
 append = (a, b) => a ++ b
 
+is = (a, b) => a == b
+
 
 #
 # Types
@@ -39,6 +49,12 @@ append = (a, b) => a ++ b
 alias Result =
 		["ok", _]
 	| ["error", _]
+
+# TODO
+# string = (r:Result) => match r {
+# 	["ok", $x]		-> "OK: " ++ x.string()
+# 	["error", $x] -> "ERROR: " ++ x.string()
+# }
 
 # Maybe type
 

@@ -63,6 +63,7 @@ const (
 	greater
 	less
 	eq
+	neq
 
 	// keywords
 	matchKeyword
@@ -133,6 +134,8 @@ func (t token) String() string {
 		return "<"
 	case eq:
 		return "=="
+	case neq:
+		return "!="
 	case matchKeyword:
 		return "match"
 	case aliasKeyword:
@@ -372,6 +375,8 @@ func (t *tokenizer) nextToken() token {
 		switch payload {
 		case "_":
 			return token{kind: underscore, pos: pos}
+		case "!=":
+			return token{kind: neq, pos: pos}
 		case "match":
 			return token{kind: matchKeyword, pos: pos}
 		case "alias":
