@@ -24,8 +24,10 @@ func (v BuiltinFnValue) Eq(u Value) bool {
 
 func (c *Context) LoadBuiltins() {
 	c.LoadFunc("__print", c.rajaPrint)
+	c.LoadFunc("__index", c.rajaIndex)
 	c.LoadFunc("__string", c.rajaString)
 	c.LoadFunc("__args", c.rajaArgs)
+	c.LoadFunc("__panic", c.rajaPanic)
 
 	_, err := c.LoadLib("base")
 	if err != nil {
@@ -52,7 +54,7 @@ func (c *Context) requireArgLen(fnName string, args []Value, count int) *runtime
 // Builtin functions
 
 func (c *Context) rajaString(args []Value) (Value, *runtimeError) {
-	if err := c.requireArgLen("string", args, 1); err != nil {
+	if err := c.requireArgLen("__string", args, 1); err != nil {
 		return nil, err
 	}
 	switch arg := args[0].(type) {
@@ -64,7 +66,7 @@ func (c *Context) rajaString(args []Value) (Value, *runtimeError) {
 }
 
 func (c *Context) rajaPrint(args []Value) (Value, *runtimeError) {
-	if err := c.requireArgLen("print", args, 1); err != nil {
+	if err := c.requireArgLen("__print", args, 1); err != nil {
 		return nil, err
 	}
 
@@ -86,4 +88,59 @@ func (c *Context) rajaArgs(_ []Value) (Value, *runtimeError) {
 		args[i] = StringValue(arg)
 	}
 	return &args, nil
+}
+
+// TODO: add stacktrace
+func (c *Context) rajaPanic(args []Value) (Value, *runtimeError) {
+	if err := c.requireArgLen("__index", args, 1); err != nil {
+		return nil, err
+	}
+	return nil, &runtimeError{
+		reason: fmt.Sprintf("Panic: %s.", args[0]),
+	}
+}
+
+// Currently only supports list with int as index
+// Returns a Maybe if third argument is false
+func (c *Context) rajaIndex(args []Value) (Value, *runtimeError) {
+	if err := c.requireArgLen("__index", args, 3); err != nil {
+		return nil, err
+	}
+	var unsafe bool
+	switch u := args[2].(type) {
+	case BoolValue:
+		unsafe = bool(u)
+	default:
+		return nil, &runtimeError{
+			reason: fmt.Sprintf("Unexpected argument to __index: %s. Expected a bool as the third argument.", args[2]),
+		}
+	}
+
+	switch list := args[0].(type) {
+	case *ListValue:
+		switch i := args[1].(type) {
+		case IntValue:
+			l := *list
+			if unsafe {
+				return l[i], nil
+			}
+			if len(l) > int(i) {
+				res := make(ListValue, 2)
+				res[0] = StringValue("some")
+				res[1] = l[i]
+				return &res, nil
+			}
+			res := make(ListValue, 1)
+			res[0] = StringValue("none")
+			return &res, nil
+		default:
+			return nil, &runtimeError{
+				reason: fmt.Sprintf("Unexpected argument to __index: %s. Expected an int as index.", args[1]),
+			}
+		}
+	default:
+		return nil, &runtimeError{
+			reason: fmt.Sprintf("Unexpected argument to __index: %s. Expected a list.", args[0]),
+		}
+	}
 }

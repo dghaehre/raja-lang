@@ -8,6 +8,9 @@
 string = (a) => __string(a)
 print = (a) => __print(a)
 get_args = (a) => __args(a)
+get_unsafe = (a, b) => __index(a, b, true)
+get = (a, b) => __index(a, b, false)
+panic = (a) => __panic(a)
 
 # Print with ending newline.
 # Also stringyfies arguments
@@ -50,19 +53,42 @@ alias Result =
 		["ok", _]
 	| ["error", _]
 
-# TODO
-# string = (r:Result) => match r {
-# 	["ok", $x]		-> "OK: " ++ x.string()
-# 	["error", $x] -> "ERROR: " ++ x.string()
-# }
+# functions on Result
+map = (r:Result, f) => match r {
+	["ok", _] -> ["ok", f(r.get_unsafe(1))]
+	_ -> r
+}
 
+string = (r:Result) => match r {
+	["ok", _] -> "Ok: " ++ {
+		r.get_unsafe(1).string()
+	}
+	_ -> "Error: " ++ {
+		r.get_unsafe(1).string()
+	}
+}
 # Maybe type
 
 alias Maybe =
 		["some", _]
 	| ["none"]
 
+map = (m:Maybe, f) => match m {
+	["some", _] -> ["some", f(m.get_unsafe(1))]
+	_ -> m
+}
 
+string = (m:Maybe) => match m {
+	["some", _] -> "Some: " ++ {
+		m.get(1).string()
+	}
+	_ -> "None"
+}
+
+unwrap = (m:Maybe) => match m {
+	["some", _] -> m.get_unsafe(1)
+	_ -> panic("trying to unwrap none")
+}
 # Smaller types
 
 alias Tuple = [_, _]
@@ -70,3 +96,30 @@ alias Tuple = [_, _]
 alias Bool = false | true
 
 # alias Num = 
+
+
+#
+# List
+#
+# TODO: create type
+
+length = (list) => {
+	_length = (l, i) => match l.get(i) {
+		["none"] -> i
+		_ -> _length(l, (i + 1))
+	}
+	_length(list, 0)
+}
+
+map_list = (list, f) => {
+	_map_list = (i) => {
+		x = list.get(i)
+		match x {
+			["some", _] -> [f(x.get_unsafe(1))] ++ {
+				_map_list(i + 1)
+			}
+			_ -> []
+		}
+	}
+	_map_list(0)
+}
