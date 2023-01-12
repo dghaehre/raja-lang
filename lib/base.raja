@@ -10,7 +10,22 @@ print = (a) => __print(a)
 get_args = (a) => __args(a)
 get_unsafe = (a, b) => __index(a, b, true)
 get = (a, b) => __index(a, b, false)
-panic = (a) => __panic(a)
+exit = (a) => __exit(a)
+panic = (a) => {
+	println("Panic: ", a)
+	exit(1)
+}
+assert = (a, b) => match (a == b) {
+	false -> {
+		aa = a.string()
+		bb = b.string()
+		x = aa ++ " == " ++ bb
+		println("Assert failed: ", x)
+		exit(1)
+	}
+	_ -> true
+}
+
 
 # Print with ending newline.
 # Also stringyfies arguments
@@ -27,7 +42,6 @@ println = (a, b, c) => {
 	cs = c.string()
 	print(as ++ " " ++ bs ++ " " ++ cs ++ "\n")
 }
-
 
 # Run function over a, and return a.
 #
@@ -87,7 +101,7 @@ string = (m:Maybe) => match m {
 
 unwrap = (m:Maybe) => match m {
 	["some", _] -> m.get_unsafe(1)
-	_ -> panic("trying to unwrap none")
+	_ -> panic("trying to unwrap Maybe::none")
 }
 # Smaller types
 
@@ -103,13 +117,12 @@ alias Bool = false | true
 #
 # TODO: create type
 
-length = (list) => {
-	_length = (l, i) => match l.get(i) {
-		["none"] -> i
-		_ -> _length(l, (i + 1))
-	}
-	_length(list, 0)
+
+_length = (l, i) => match l.get(i) {
+	["none"] -> i
+	_ -> _length(l, (i + 1))
 }
+length = (list) => _length(list, 0)
 
 map_list = (list, f) => {
 	_map_list = (i) => {

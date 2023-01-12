@@ -27,7 +27,7 @@ func (c *Context) LoadBuiltins() {
 	c.LoadFunc("__index", c.rajaIndex)
 	c.LoadFunc("__string", c.rajaString)
 	c.LoadFunc("__args", c.rajaArgs)
-	c.LoadFunc("__panic", c.rajaPanic)
+	c.LoadFunc("__exit", c.rajaExit)
 
 	_, err := c.LoadLib("base")
 	if err != nil {
@@ -90,13 +90,20 @@ func (c *Context) rajaArgs(_ []Value) (Value, *runtimeError) {
 	return &args, nil
 }
 
-// TODO: add stacktrace
-func (c *Context) rajaPanic(args []Value) (Value, *runtimeError) {
-	if err := c.requireArgLen("__index", args, 1); err != nil {
+func (c *Context) rajaExit(args []Value) (Value, *runtimeError) {
+	if err := c.requireArgLen("exit", args, 1); err != nil {
 		return nil, err
 	}
-	return nil, &runtimeError{
-		reason: fmt.Sprintf("Panic: %s.", args[0]),
+
+	switch arg := args[0].(type) {
+	case IntValue:
+		os.Exit(int(arg))
+		// unreachable
+		return IntValue(int(arg)), nil
+	default:
+		return nil, &runtimeError{
+			reason: fmt.Sprintf("Mismatched types in call exit(%s)", args[0]),
+		}
 	}
 }
 
