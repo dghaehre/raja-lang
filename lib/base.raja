@@ -11,20 +11,6 @@ get_args = (a) => __args(a)
 get_unsafe = (a, b) => __index(a, b, true)
 get = (a, b) => __index(a, b, false)
 exit = (a) => __exit(a)
-panic = (a) => {
-	println("Panic: ", a)
-	exit(1)
-}
-assert = (a, b) => match (a == b) {
-	false -> {
-		aa = a.string()
-		bb = b.string()
-		x = aa ++ " == " ++ bb
-		println("Assert failed: ", x)
-		exit(1)
-	}
-	_ -> true
-}
 
 
 # Print with ending newline.
@@ -55,20 +41,46 @@ append = (a, b) => a ++ b
 
 is = (a, b) => a == b
 
+panic = (a) => {
+	println("Panic: ", a)
+	exit(1)
+}
+
+assert = (a, b) => match (a == b) {
+	false -> {
+		aa = a.string()
+		bb = b.string()
+		x = aa ++ " == " ++ bb
+		println("Assert failed: ", x)
+		exit(1)
+	}
+	_ -> true
+}
 
 #
 # Types
 #
 
+# Builtin types:
+
+# alias Int
+# alias Float
+# alias Str
+# alias List
 
 # Result type
+# NOTE: this 'implementation' is problematic..
+# Which function to choose:
+# map = (l:List, f:Fn)
+# map = (l:Result, f:Fn)
+# ^ Its very hard to figure out which one to choose.
 
 alias Result =
 		["ok", _]
 	| ["error", _]
 
 # functions on Result
-map = (r:Result, f) => match r {
+map = (r:Result, f:Fn) => match r {
 	["ok", _] -> ["ok", f(r.get_unsafe(1))]
 	_ -> r
 }
@@ -109,22 +121,25 @@ alias Tuple = [_, _]
 
 alias Bool = false | true
 
+alias Num = Int | Float
+
 # alias Num = 
 
 
 #
 # List
 #
-# TODO: create type
 
 
-_length = (l, i) => match l.get(i) {
-	["none"] -> i
-	_ -> _length(l, (i + 1))
+length = (list:List) => {
+	_length = (l, i) => match l.get(i) {
+		["none"] -> i
+		_ -> _length(l, (i + 1))
+	}
+	_length(list, 0)
 }
-length = (list) => _length(list, 0)
 
-map_list = (list, f) => {
+map = (list:List, f:Fn) => {
 	_map_list = (i) => {
 		x = list.get(i)
 		match x {

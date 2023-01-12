@@ -1,0 +1,15 @@
+
+
+some_func = (a:Num) => println("an int")
+
+some_func = (a:Str) => println("a string")
+
+some_func = (a:Float) => println("a float")
+
+some_func = (a:List) => println("a list")
+
+
+some_func(1)
+some_func("sdf")
+some_func(1.2)
+some_func([1, 2])

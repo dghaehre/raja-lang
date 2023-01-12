@@ -22,12 +22,34 @@ func (v BuiltinFnValue) Eq(u Value) bool {
 	return false
 }
 
+type aliasFn = func(u Value) bool
+
+type BuiltinAliasValue struct {
+	name string
+	eqFn aliasFn
+}
+
+func (v BuiltinAliasValue) String() string {
+	return "alias = " + v.name
+}
+
+func (v BuiltinAliasValue) Eq(u Value) bool {
+	return v.eqFn(u)
+}
+
 func (c *Context) LoadBuiltins() {
 	c.LoadFunc("__print", c.rajaPrint)
 	c.LoadFunc("__index", c.rajaIndex)
 	c.LoadFunc("__string", c.rajaString)
 	c.LoadFunc("__args", c.rajaArgs)
 	c.LoadFunc("__exit", c.rajaExit)
+
+	// Types/Alias
+	c.LoadAlias("Int", c.rajaAliasInt)
+	c.LoadAlias("Float", c.rajaAliasFloat)
+	c.LoadAlias("Str", c.rajaAliasStr)
+	c.LoadAlias("List", c.rajaAliasList)
+	c.LoadAlias("Fn", c.rajaAliasFn)
 
 	_, err := c.LoadLib("base")
 	if err != nil {
@@ -39,6 +61,13 @@ func (c *Context) LoadFunc(name string, fn builtinFn) {
 	c.scope.put(name, BuiltinFnValue{
 		name: name,
 		fn:   fn,
+	}, pos{})
+}
+
+func (c *Context) LoadAlias(name string, fn aliasFn) {
+	c.scope.put(name, BuiltinAliasValue{
+		name: name,
+		eqFn: fn,
 	}, pos{})
 }
 
@@ -64,6 +93,28 @@ func (c *Context) rajaString(args []Value) (Value, *runtimeError) {
 		return StringValue(arg.String()), nil
 	}
 }
+
+// func (c *Context) rajaInt(args []Value) (Value, *runtimeError) {
+// 	if err := c.requireArgLen("__index", args, 2); err != nil {
+// 		return nil, err
+// 	}
+// 	var unsafe bool
+// 	switch u := args[1].(type) {
+// 	case BoolValue:
+// 		unsafe = bool(u)
+// 	default:
+// 		return nil, &runtimeError{
+// 			reason: fmt.Sprintf("Unexpected argument to __index: %s. Expected a bool as the third argument.", args[2]),
+// 		}
+// 	}
+// 	switch arg := args[0].(type) {
+// 	case *StringValue:
+// 		return arg, nil
+// 	default:
+// 		return StringValue(arg.String()), nil
+// 	}
+// }
+
 
 func (c *Context) rajaPrint(args []Value) (Value, *runtimeError) {
 	if err := c.requireArgLen("__print", args, 1); err != nil {
@@ -149,5 +200,50 @@ func (c *Context) rajaIndex(args []Value) (Value, *runtimeError) {
 		return nil, &runtimeError{
 			reason: fmt.Sprintf("Unexpected argument to __index: %s. Expected a list.", args[0]),
 		}
+	}
+}
+
+func (c *Context) rajaAliasInt(u Value) bool {
+	switch u.(type) {
+	case IntValue:
+		return true
+	default:
+		return false
+	}
+}
+
+func (c *Context) rajaAliasFloat(u Value) bool {
+	switch u.(type) {
+	case FloatValue:
+		return true
+	default:
+		return false
+	}
+}
+
+func (c *Context) rajaAliasStr(u Value) bool {
+	switch u.(type) {
+	case StringValue:
+		return true
+	default:
+		return false
+	}
+}
+
+func (c *Context) rajaAliasList(u Value) bool {
+	switch u.(type) {
+	case *ListValue:
+		return true
+	default:
+		return false
+	}
+}
+
+func (c *Context) rajaAliasFn(u Value) bool {
+	switch u.(type) {
+	case FnValue, FnValues, BuiltinFnValue:
+		return true
+	default:
+		return false
 	}
 }
