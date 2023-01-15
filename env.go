@@ -80,6 +80,22 @@ func (c *Context) requireArgLen(fnName string, args []Value, count int) *runtime
 	return nil
 }
 
+func toSome(v Value) Value {
+	return EnumValue{
+		parent: "Maybe",
+		name:   "Some",
+		args:   []Value{v},
+	}
+}
+
+func toNone() Value {
+	return EnumValue{
+		parent: "Maybe",
+		name:   "None",
+		args:   []Value{},
+	}
+}
+
 // Builtin functions
 
 func (c *Context) rajaString(args []Value) (Value, *runtimeError) {
@@ -114,7 +130,6 @@ func (c *Context) rajaString(args []Value) (Value, *runtimeError) {
 // 		return StringValue(arg.String()), nil
 // 	}
 // }
-
 
 func (c *Context) rajaPrint(args []Value) (Value, *runtimeError) {
 	if err := c.requireArgLen("__print", args, 1); err != nil {
@@ -174,23 +189,33 @@ func (c *Context) rajaIndex(args []Value) (Value, *runtimeError) {
 		}
 	}
 
-	switch list := args[0].(type) {
+	switch v := args[0].(type) {
 	case *ListValue:
 		switch i := args[1].(type) {
 		case IntValue:
-			l := *list
+			l := *v
 			if unsafe {
 				return l[i], nil
 			}
 			if len(l) > int(i) {
-				res := make(ListValue, 2)
-				res[0] = StringValue("some")
-				res[1] = l[i]
-				return &res, nil
+				return toSome(l[i]), nil
 			}
-			res := make(ListValue, 1)
-			res[0] = StringValue("none")
-			return &res, nil
+			return toNone(), nil
+		default:
+			return nil, &runtimeError{
+				reason: fmt.Sprintf("Unexpected argument to __index: %s. Expected an int as index.", args[1]),
+			}
+		}
+	case EnumValue:
+		switch i := args[1].(type) {
+		case IntValue:
+			if unsafe {
+				return v.args[i], nil
+			}
+			if len(v.args) > int(i) {
+				return toSome(v.args[i]), nil
+			}
+			return toNone(), nil
 		default:
 			return nil, &runtimeError{
 				reason: fmt.Sprintf("Unexpected argument to __index: %s. Expected an int as index.", args[1]),

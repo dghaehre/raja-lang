@@ -160,3 +160,30 @@ func TestAliasAndMultipleDispatch(t *testing.T) {
 	`
 	expectProgramToReturn(t, p, &ListValue{StringValue("yeeees"), StringValue("sdff")})
 }
+
+func TestResultAlias(t *testing.T) {
+	p := `
+	val_ok = "test"
+		.to_ok()
+		.map((a) => a.append(" !"))
+		.unwrap()
+
+	val_err =  "failed"
+		.to_err()
+		.map((a) => a.append(" !"))
+		.map_err((a) => "Err: " ++ a)
+		.unwrap()
+
+	[val_ok, val_err]
+	`
+	expectProgramToReturn(t, p, &ListValue{StringValue("test !"), StringValue("Err: failed")})
+}
+
+func TestListFunctions(t *testing.T) {
+	p := `
+	x = [1, 2, 3, 4, 5]
+	x.map(increment_by(1)).sum()
+
+	`
+	expectProgramToReturn(t, p, IntValue(20))
+}

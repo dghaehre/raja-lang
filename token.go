@@ -45,6 +45,7 @@ const (
 	fnArrow
 	branchArrow
 	colon
+	doubleColon
 
 	// indent stuff
 	// TODO: remove indent
@@ -114,6 +115,8 @@ func (t token) String() string {
 		return "->"
 	case colon:
 		return ":"
+	case doubleColon:
+		return "::"
 	case plus:
 		return "+"
 	case plusOther:
@@ -316,6 +319,10 @@ func (t *tokenizer) nextToken() token {
 	case '}':
 		return token{kind: rightBrace, pos: t.currentPos()}
 	case ':':
+		if !t.isEOF() && t.peek() == ':' {
+			t.next()
+			return token{kind: doubleColon, pos: t.currentPos()}
+		}
 		return token{kind: colon, pos: t.currentPos()}
 	case '=':
 		if !t.isEOF() && t.peek() == '>' {

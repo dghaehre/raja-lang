@@ -203,6 +203,37 @@ func (p *parser) parseNumberLiteral(tok token) (astNode, error) {
 	}, nil
 }
 
+func (p *parser) parseEnum(tok token) (astNode, error) {
+	parentName := tok.payload
+	p.next() // eat double colon
+	name, err := p.expect(identifier)
+	if err != nil {
+		return nil, err
+	}
+	args := []astNode{}
+	for !p.isEOF() && p.peek().kind == leftParen {
+		_ = p.next() // eat or
+		b, err := p.parseNode()
+		if err != nil {
+			return nil, err
+		}
+		args = append(args, b)
+	}
+
+	if len(args) > 0 {
+		_, err = p.expect(rightParen)
+		if err != nil {
+			 return nil, err
+		}
+	}
+	return enumNode{
+		parent: parentName,
+		name:   name.payload,
+		args:   args,
+		tok:    &tok,
+	}, nil
+}
+
 func (p *parser) parseFunction(tok token) (astNode, error) {
 	tokens := p.readUntilTokenKind(rightParen)
 	p.next() // eat right paren
@@ -302,6 +333,9 @@ func (p *parser) parseUnit() (astNode, error) {
 	case underscore:
 		return underscoreNode{tok: &tok}, nil
 	case identifier:
+		for !p.isEOF() && p.peek().kind == doubleColon {
+			return p.parseEnum(tok)
+		}
 		return identifierNode{payload: tok.payload, tok: &tok}, nil
 	case leftParen:
 		if p.isStartOfFunction() {
@@ -330,6 +364,7 @@ func (p *parser) parseUnit() (astNode, error) {
 		if err != nil {
 			return nil, err
 		}
+		// ...
 		targets := []astNode{body}
 		for !p.isEOF() && p.peek().kind == or {
 			_ = p.next() // eat or

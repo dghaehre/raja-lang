@@ -235,3 +235,26 @@ func (t aliasNode) String() string {
 func (t aliasNode) pos() pos {
 	return t.tok.pos
 }
+
+type enumNode struct {
+	parent string
+	name   string
+	args   []astNode
+	tok    *token
+}
+
+func (e enumNode) String() string {
+	argsStrings := make([]string, len(e.args))
+	for i, target := range e.args {
+		argsStrings[i] = target.String()
+	}
+	n := e.parent + "::" + e.name
+	if len(e.args) > 0 {
+		return n + "(" + strings.Join(argsStrings, ", ") + ")"
+	}
+	return n
+}
+
+func (e enumNode) pos() pos {
+	return e.tok.pos
+}

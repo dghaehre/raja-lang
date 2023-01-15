@@ -68,62 +68,66 @@ assert = (a, b) => match (a == b) {
 # alias Str
 # alias List
 
-# Result type
-# NOTE: this 'implementation' is problematic..
-# Which function to choose:
-# map = (l:List, f:Fn)
-# map = (l:Result, f:Fn)
-# ^ Its very hard to figure out which one to choose.
-
-alias Result =
-		["ok", _]
-	| ["error", _]
-
-# functions on Result
-map = (r:Result, f:Fn) => match r {
-	["ok", _] -> ["ok", f(r.get_unsafe(1))]
-	_ -> r
-}
-
-string = (r:Result) => match r {
-	["ok", _] -> "Ok: " ++ {
-		r.get_unsafe(1).string()
-	}
-	_ -> "Error: " ++ {
-		r.get_unsafe(1).string()
-	}
-}
-# Maybe type
-
-alias Maybe =
-		["some", _]
-	| ["none"]
-
-map = (m:Maybe, f) => match m {
-	["some", _] -> ["some", f(m.get_unsafe(1))]
-	_ -> m
-}
-
-string = (m:Maybe) => match m {
-	["some", _] -> "Some: " ++ {
-		m.get(1).string()
-	}
-	_ -> "None"
-}
-
-unwrap = (m:Maybe) => match m {
-	["some", _] -> m.get_unsafe(1)
-	_ -> panic("trying to unwrap Maybe::none")
-}
-# Smaller types
-
 alias Tuple = [_, _]
 
 alias Bool = false | true
 
 alias Num = Int | Float
 
-# alias Num = 
+
+
+# Result
+
+alias Result =
+		Result::Ok(_)
+	| Result::Err(_)
+
+to_ok = (a) => Result::Ok(a)
+
+map = (r:Result, f:Fn) => match r {
+	Result::Ok(_) -> Result::Ok(f(r.get_unsafe(0)))
+	_							-> r
+}
+
+map_err = (r:Result, f:Fn) => match r {
+	Result::Err(_) -> Result::Err(f(r.get_unsafe(0)))
+	_							-> r
+}
+
+to_err = (a) => Result::Err(a)
+
+unwrap = (r:Result) => r.get_unsafe(0)
+
+unwrap_or = (r:Result, a) => match r {
+	Result::Ok(_) -> r.get_unsafe(0)
+	_							-> a
+}
+
+
+
+# Maybe type
+
+alias Maybe =
+		Maybe::Some(_)
+	| Maybe::None
+
+to_maybe = (a) => Maybe::Some(a)
+
+map = (m:Maybe, f:Fn) => match m {
+	Maybe::Some(_) -> Maybe::Some(f(m.get_unsafe(0)))
+	_							 -> m
+}
+
+unwrap = (m:Maybe) => m.get_unsafe(0)
+
+unwrap_or = (m:Maybe, a) => match m {
+	Maybe::Some(_) -> m.get_unsafe(0)
+	_							 -> a
+}
+
+
+
+# Smaller types
 
 
 #
@@ -133,7 +137,7 @@ alias Num = Int | Float
 
 length = (list:List) => {
 	_length = (l, i) => match l.get(i) {
-		["none"] -> i
+		Maybe::None -> i
 		_ -> _length(l, (i + 1))
 	}
 	_length(list, 0)
@@ -143,7 +147,7 @@ map = (list:List, f:Fn) => {
 	_map_list = (i) => {
 		x = list.get(i)
 		match x {
-			["some", _] -> [f(x.get_unsafe(1))] ++ {
+			Maybe::Some(_) -> [f(x.unwrap())] ++ {
 				_map_list(i + 1)
 			}
 			_ -> []
@@ -151,3 +155,23 @@ map = (list:List, f:Fn) => {
 	}
 	_map_list(0)
 }
+
+# Expects the list to contain only Num
+sum = (list:List) => {
+	_sum = (l, i, s) => match l.get(i) {
+		Maybe::Some(_) -> {
+			v = l.get(i)
+			newsum = v.unwrap() + s
+			_sum(l, (i + 1), newsum)
+		}
+		_ -> s
+	}
+	_sum(list, 0, 0)
+}
+
+
+# Num functions
+
+increment = (n:Num) => n + 1
+
+increment_by = (a:Num) => (b:Num) => a + b

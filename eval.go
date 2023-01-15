@@ -195,6 +195,48 @@ func (a AliasValue) Eq(u Value) bool {
 	return false
 }
 
+// TODO: rename args
+type EnumValue struct {
+	parent string
+	name   string
+	args   []Value
+}
+
+func (e EnumValue) String() string {
+	n := fmt.Sprintf("%s::%s", e.parent, e.name)
+	if len(e.args) == 0 {
+		return n
+	}
+	stringValues := make([]string, len(e.args))
+	for i, s := range e.args {
+		stringValues[i] = s.String()
+	}
+	return n + "(" + strings.Join(stringValues, ", ") + ")"
+}
+
+func (e EnumValue) Eq(u Value) bool {
+	if _, ok := u.(UnderscoreValue); ok {
+		return true
+	}
+	switch uu := u.(type) {
+	case EnumValue:
+		if e.parent != uu.parent || e.name != uu.name {
+			return false
+		}
+		if len(e.args) != len(uu.args) {
+			return false
+		}
+		for i := 0; i < len(e.args); i++ {
+			if !e.args[i].Eq(uu.args[i]) {
+				return false
+			}
+		}
+		return true
+	default:
+		return false
+	}
+}
+
 // Used to store FnValue's with the same name. (Multiple dispatch)
 //
 // Only used in scope
@@ -521,7 +563,6 @@ func (c *Context) getCorrectFnValue(n fnCallNode, fnv FnValues, args []Value) (F
 			}
 			if !v.Eq(args[i]) {
 				return false
-
 			}
 		}
 		return true
@@ -685,6 +726,21 @@ func (c *Context) evalExpr(node astNode, sc scope) (Value, *runtimeError) {
 		}
 		list := ListValue(elems)
 		return &list, nil
+	case enumNode:
+		var err *runtimeError
+		elems := make([]Value, len(n.args))
+		for i, elNode := range n.args {
+			elems[i], err = c.evalExpr(elNode, sc)
+			if err != nil {
+				return nil, err
+			}
+		}
+		return EnumValue{
+			name:   n.name,
+			parent: n.parent,
+			args:   elems,
+		}, nil
+
 	case aliasNode:
 		var err *runtimeError
 		elems := make([]Value, len(n.targets))
