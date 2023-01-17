@@ -182,7 +182,7 @@ func TestResultAlias(t *testing.T) {
 func TestListFunctions(t *testing.T) {
 	p := `
 	x = [1, 2, 3, 4, 5]
-	x.map(increment_by(1)).sum()
+	x.map(increment).sum()
 
 	`
 	expectProgramToReturn(t, p, IntValue(20))

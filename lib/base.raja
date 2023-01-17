@@ -13,6 +13,22 @@ get = (a, b) => __index(a, b, false)
 exit = (a) => __exit(a)
 
 
+# Builtin types:
+# alias Int
+# alias Float
+# alias Str
+# alias List
+
+alias Tuple = [_, _]
+
+alias Bool = false | true
+
+alias Num = Int | Float
+
+alias Iterator = List | Str
+
+
+
 # Print with ending newline.
 # Also stringyfies arguments
 println = () => print("\n")
@@ -37,8 +53,6 @@ with_identity = (a, f) => {
 	a
 }
 
-append = (a, b) => a ++ b
-
 is = (a, b) => a == b
 
 panic = (a) => {
@@ -57,23 +71,42 @@ assert = (a, b) => match (a == b) {
 	_ -> true
 }
 
+assert = (a) => match a {
+	true -> a
+	_		 ->  {
+		aa = a.string()
+		x = aa ++ " == true"
+		println("Assert failed: ", x)
+		exit(1)
+	}
+}
+
+falsy? = (a) => match a {
+	[]		-> true
+	""		-> true
+	0			-> true
+	false -> true
+}
+
+default = (a:List) => []
+default = (a:Str) => ""
+default = (a:Num) => 0
+default = (a:Bool) => false
+default = (a, b) => match falsy?(a) {
+	true -> b
+	_		 -> a
+}
+
+
+append = (a, b) => a ++ b
+append = (a:List, b:List) => a ++ b
+append = (a:List, b) => a ++ [b]
+append = (a, b:List) => [a] ++ b
+prepend = (a, b) => append(b, a)
+
 #
 # Types
 #
-
-# Builtin types:
-
-# alias Int
-# alias Float
-# alias Str
-# alias List
-
-alias Tuple = [_, _]
-
-alias Bool = false | true
-
-alias Num = Int | Float
-
 
 
 # Result
@@ -84,23 +117,38 @@ alias Result =
 
 to_ok = (a) => Result::Ok(a)
 
-map = (r:Result, f:Fn) => match r {
-	Result::Ok(_) -> Result::Ok(f(r.get_unsafe(0)))
-	_							-> r
-}
-
-map_err = (r:Result, f:Fn) => match r {
-	Result::Err(_) -> Result::Err(f(r.get_unsafe(0)))
-	_							-> r
-}
-
 to_err = (a) => Result::Err(a)
 
 unwrap = (r:Result) => r.get_unsafe(0)
 
+map = (r:Result, f:Fn) => match r {
+	Result::Ok(_) -> Result::Ok(f(r.unwrap()))
+	_							-> r
+}
+
+map_err = (r:Result, f:Fn) => match r {
+	Result::Err(_) -> Result::Err(f(r.unwrap()))
+	_							-> r
+}
+
 unwrap_or = (r:Result, a) => match r {
-	Result::Ok(_) -> r.get_unsafe(0)
+	Result::Ok(_) -> r.unwrap()
 	_							-> a
+}
+
+and = (res:Result, a:Result) => match res {
+	Result::Ok(_) -> a
+	_							-> res
+}
+
+and_then = (res:Result, f:Fn) => match res {
+	Result::Ok(_) -> f(res.unwrap())
+	_							-> res
+}
+
+to_maybe = (res:Result) => match res {
+	Result::Ok(_) -> to_some(res.unwrap())
+	_							-> Maybe::None
 }
 
 
@@ -111,31 +159,44 @@ alias Maybe =
 		Maybe::Some(_)
 	| Maybe::None
 
-to_maybe = (a) => Maybe::Some(a)
-
-map = (m:Maybe, f:Fn) => match m {
-	Maybe::Some(_) -> Maybe::Some(f(m.get_unsafe(0)))
-	_							 -> m
-}
+to_some = (a) => Maybe::Some(a)
 
 unwrap = (m:Maybe) => m.get_unsafe(0)
 
+map = (m:Maybe, f:Fn) => match m {
+	Maybe::Some(_) -> Maybe::Some(f(m.unwrap()))
+	_							 -> m
+}
+
 unwrap_or = (m:Maybe, a) => match m {
-	Maybe::Some(_) -> m.get_unsafe(0)
+	Maybe::Some(_) -> m.unwrap()
 	_							 -> a
 }
 
+and = (m:Maybe, a) => match m {
+	Maybe::Some(_) -> a
+	_							 -> m
+}
 
+and_then = (m:Maybe, f:Fn) => match res {
+	Maybe::Some(_) -> f(m.unwrap())
+	_							 -> res
+}
 
-# Smaller types
+to_result = (m:Maybe, err) => match m {
+	Maybe::Ok(_)	-> to_ok(m.unwrap())
+	Maybe::None		-> to_err(err)
+}
+
 
 
 #
 # List
 #
 
+# TODO: fold
 
-length = (list:List) => {
+length = (list:Iterator) => {
 	_length = (l, i) => match l.get(i) {
 		Maybe::None -> i
 		_ -> _length(l, (i + 1))
@@ -143,17 +204,19 @@ length = (list:List) => {
 	_length(list, 0)
 }
 
-map = (list:List, f:Fn) => {
-	_map_list = (i) => {
-		x = list.get(i)
+# The generic map function
+map = (iter:Iterator, f:Fn) => {
+	_map_iterator = (l, i) => {
+		x = l.get(i)
 		match x {
-			Maybe::Some(_) -> [f(x.unwrap())] ++ {
-				_map_list(i + 1)
+			Maybe::Some(_) -> {
+				xx = f(x.unwrap())
+				xx.append(_map_iterator(l, i + 1))
 			}
-			_ -> []
+			_ -> default(iter)
 		}
 	}
-	_map_list(0)
+	_map_iterator(iter, 0)
 }
 
 # Expects the list to contain only Num
@@ -170,8 +233,18 @@ sum = (list:List) => {
 }
 
 
+# Create a list from a to b, with its corresponding index as content
+# range = (a:Int, b:Int) => {
+# 	assert((b > a))
+# 	diff = a - b
+# 	_range = (l, i) => match (diff > i) {
+# 		true -> _range(l + [i], (i + 1))
+# 		false -> l
+# 	}
+# 	_range([], 0)
+# }
+
+
 # Num functions
 
 increment = (n:Num) => n + 1
-
-increment_by = (a:Num) => (b:Num) => a + b

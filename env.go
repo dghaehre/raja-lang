@@ -50,6 +50,7 @@ func (c *Context) LoadBuiltins() {
 	c.LoadAlias("Str", c.rajaAliasStr)
 	c.LoadAlias("List", c.rajaAliasList)
 	c.LoadAlias("Fn", c.rajaAliasFn)
+	c.LoadAlias("Enum", c.rajaAliasEnum)
 
 	_, err := c.LoadLib("base")
 	if err != nil {
@@ -173,7 +174,10 @@ func (c *Context) rajaExit(args []Value) (Value, *runtimeError) {
 	}
 }
 
-// Currently only supports list with int as index
+// Supports:
+// - List
+// - Str
+//
 // Returns a Maybe if third argument is false
 func (c *Context) rajaIndex(args []Value) (Value, *runtimeError) {
 	if err := c.requireArgLen("__index", args, 3); err != nil {
@@ -221,9 +225,27 @@ func (c *Context) rajaIndex(args []Value) (Value, *runtimeError) {
 				reason: fmt.Sprintf("Unexpected argument to __index: %s. Expected an int as index.", args[1]),
 			}
 		}
+	case StringValue:
+		switch i := args[1].(type) {
+		case IntValue:
+			if unsafe {
+				return StringValue([]byte{v[i]}), nil
+			}
+			if len(v) > int(i) {
+				return toSome(StringValue([]byte{v[i]})), nil
+			}
+			return toNone(), nil
+		default:
+			return nil, &runtimeError{
+				reason: fmt.Sprintf("Unexpected argument to __index: %s. Expected an int as index.", args[1]),
+			}
+		}
+		return nil, &runtimeError{
+			reason: fmt.Sprintf("TODO"),
+		}
 	default:
 		return nil, &runtimeError{
-			reason: fmt.Sprintf("Unexpected argument to __index: %s. Expected a list.", args[0]),
+			reason: fmt.Sprintf("Unexpected argument to __index: %s. Expected an Iterator.", args[0]),
 		}
 	}
 }
@@ -258,6 +280,15 @@ func (c *Context) rajaAliasStr(u Value) bool {
 func (c *Context) rajaAliasList(u Value) bool {
 	switch u.(type) {
 	case *ListValue:
+		return true
+	default:
+		return false
+	}
+}
+
+func (c *Context) rajaAliasEnum(u Value) bool {
+	switch u.(type) {
+	case EnumValue:
 		return true
 	default:
 		return false

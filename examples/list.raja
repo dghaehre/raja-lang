@@ -1,0 +1,8 @@
+
+org = [1, 2, 3]
+
+org.map(increment).println()
+
+name = "messi"
+
+name.map((a) => a ++ " !").println()
