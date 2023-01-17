@@ -399,6 +399,10 @@ func floatBinaryOp(op tokKind, left FloatValue, right FloatValue) (Value, *runti
 		return FloatValue(left * right), nil
 	case eq:
 		return BoolValue(left == right), nil
+	case greater:
+		return BoolValue(left > right), nil
+	case less:
+		return BoolValue(left < right), nil
 	case neq:
 		return BoolValue(left != right), nil
 	default:
@@ -414,6 +418,10 @@ func intBinaryOp(op tokKind, left IntValue, right IntValue) (Value, *runtimeErro
 		return IntValue(left + right), nil
 	case times:
 		return IntValue(left * right), nil
+	case greater:
+		return BoolValue(left > right), nil
+	case less:
+		return BoolValue(left < right), nil
 	case eq:
 		return BoolValue(left == right), nil
 	case neq:

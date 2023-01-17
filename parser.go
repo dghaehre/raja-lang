@@ -548,8 +548,8 @@ func (p *parser) parseNode() (astNode, error) {
 		switch p.peek().kind {
 		case assign:
 			return p.parseAssignment(node)
-		case plus, minus, times, divide, plusOther, eq, neq:
-			// TODO: add: and, or, greater, less, eq, geq, leq, neq:
+		case plus, minus, times, divide, plusOther, eq, neq, greater, less:
+			// TODO: add: and, or, geq, leq:
 			//
 			// We keep looping here because we want to adhere to order of operations.
 			// Which means that there might be more binary operations coming, and we need to catch them here.

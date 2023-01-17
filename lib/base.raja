@@ -60,23 +60,10 @@ panic = (a) => {
 	exit(1)
 }
 
-assert = (a, b) => match (a == b) {
-	false -> {
-		aa = a.string()
-		bb = b.string()
-		x = aa ++ " == " ++ bb
-		println("Assert failed: ", x)
-		exit(1)
-	}
-	_ -> true
-}
-
-assert = (a) => match a {
+assert = (a, explanation:Str) => match a {
 	true -> a
 	_		 ->  {
-		aa = a.string()
-		x = aa ++ " == true"
-		println("Assert failed: ", x)
+		println("Assert failed: ", explanation)
 		exit(1)
 	}
 }
@@ -204,20 +191,25 @@ length = (list:Iterator) => {
 	_length(list, 0)
 }
 
-# The generic map function
-map = (iter:Iterator, f:Fn) => {
-	_map_iterator = (l, i) => {
-		x = l.get(i)
+fold = (iter:Iterator, f:Fn, accumulator) => {
+	_fold = (acc, i) => {
+		x = iter.get(i)
 		match x {
 			Maybe::Some(_) -> {
-				xx = f(x.unwrap())
-				xx.append(_map_iterator(l, i + 1))
+				res = f(acc, x.unwrap())
+				_fold(res, i + 1)
 			}
-			_ -> default(iter)
+			_ -> acc
 		}
 	}
-	_map_iterator(iter, 0)
+	_fold(accumulator, 0)
 }
+
+map = (iter:Iterator, f:Fn) => {
+	acc_fn = (acc, elem) => acc.append(f(elem))
+	fold(iter, acc_fn, iter.default()) 
+}
+
 
 # Expects the list to contain only Num
 sum = (list:List) => {
@@ -234,17 +226,24 @@ sum = (list:List) => {
 
 
 # Create a list from a to b, with its corresponding index as content
-# range = (a:Int, b:Int) => {
-# 	assert((b > a))
-# 	diff = a - b
-# 	_range = (l, i) => match (diff > i) {
-# 		true -> _range(l + [i], (i + 1))
-# 		false -> l
-# 	}
-# 	_range([], 0)
-# }
+range = (a:Int, b:Int) => {
+	assert(b > a, "First argument in range needs to be bigger than second argument")
+	_range = (l, i) => match (b > i) {
+		true -> _range(l ++ [i], i + 1)
+		false -> l
+	}
+	_range([], a)
+}
 
 
 # Num functions
 
 increment = (n:Num) => n + 1
+
+
+# Str functions
+
+# Doesnt really do anything, just a simple way to specify what the function expects
+alias Char = Str
+
+# uppercase = (s:Char) => match s {
