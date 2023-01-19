@@ -26,8 +26,7 @@ func expectProgramToReturn(t *testing.T, program string, expected Value) {
 func TestVariablesAndAddition(t *testing.T) {
 	p := `
   test = 10
-  x = 10
-  test + x`
+  test + 10`
 	expectProgramToReturn(t, p, IntValue(20))
 }
 
@@ -183,7 +182,16 @@ func TestListFunctions(t *testing.T) {
 	p := `
 	x = [1, 2, 3, 4, 5]
 	x.map(increment).sum()
-
 	`
 	expectProgramToReturn(t, p, IntValue(20))
+}
+
+func TestPrecedence(t *testing.T) {
+  p := `
+concat_some_strings = (a, b, c) => {
+  a.string() ++ " " ++ b.string() ++ " " ++ c.string()
+}
+concat_some_strings(1, 2, 3)
+  `
+	expectProgramToReturn(t, p, StringValue("1 2 3"))
 }

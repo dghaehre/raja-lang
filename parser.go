@@ -27,6 +27,7 @@ type parseError struct {
 func (e parseError) Error() string {
 	return fmt.Sprintf("Parse error at %s: %s", e.pos.String(), e.reason)
 }
+
 func (p *parser) isEOF() bool {
 	return p.index == len(p.tokens)
 }
@@ -142,11 +143,19 @@ func (p *parser) parseBinaryOP(left astNode) (astNode, error) {
 		op:   op.kind,
 		tok:  &op,
 	}
-
 	right, err := p.parseUnit()
 	if err != nil {
 		return nil, err
 	}
+
+	// dot has the 'ultimate' precedence...
+	if !p.isEOF() && p.peek().kind == dot {
+		right, err = p.parseBinaryDot(right)
+		if err != nil {
+			return nil, err
+		}
+	}
+
 	node.right = right
 	return node, nil
 }

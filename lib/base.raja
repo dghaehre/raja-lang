@@ -33,11 +33,7 @@ alias Iterator = List | Str
 # Also stringyfies arguments
 println = () => print("\n")
 println = (a) => print(a.string() ++ "\n")
-println = (a, b) => {
-	as = a.string()
-	bs = b.string()
-	print(as ++ " " ++ bs ++ "\n")
-}
+println = (a, b) => print(a.string() ++ " " ++ b.string() ++ "\n")
 println = (a, b, c) => {
 	as = a.string()
 	bs = b.string()
