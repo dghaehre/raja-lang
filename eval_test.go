@@ -195,3 +195,35 @@ concat_some_strings(1, 2, 3)
   `
 	expectProgramToReturn(t, p, StringValue("1 2 3"))
 }
+
+func TestBaseTrim(t *testing.T) {
+  p := `
+	x = " some string  "
+	x.trim()
+`
+	expectProgramToReturn(t, p, StringValue("some string"))
+}
+
+func TestBaseTake(t *testing.T) {
+  p := `
+	x = "some string"
+  x.take(2)
+`
+	expectProgramToReturn(t, p, StringValue("so"))
+}
+
+func TestBaseHasPrefixAt(t *testing.T) {
+  p := `
+	x = "some string"
+  [x.has_prefix_at?("me", 2), x.has_prefix_at?("str", 3)]
+`
+	expectProgramToReturn(t, p, &ListValue{BoolValue(true), BoolValue(false)})
+}
+
+// func TestBaseSplitBy(t *testing.T) {
+//   p := `
+// 	x = "some, string, that does, something"
+//   x.split_by(", ")
+// `
+// 	expectProgramToReturn(t, p, &ListValue{StringValue("some"), StringValue("string"), StringValue("that does"), StringValue("something")})
+// }

@@ -7,6 +7,7 @@
 
 string = (a) => __string(a)
 print = (a) => __print(a)
+read_file = (a:Str) => __read_file(a)
 get_args = () => __args()
 get_unsafe = (a:Iterator, b:Int) => __index(a, b, true)
 get = (a:Iterator, b:Int) => __index(a, b, false)
@@ -195,9 +196,32 @@ to_result = (m:Maybe, err) => match m {
 # List
 #
 
+# Returns a Maybe
 head = (l:Iterator) => l.get(0)
 
+# Returns a Maybe
 last = (l:Iterator) => l.get(l.length() - 1)
+
+# Take n from Iterator
+take = (l:Iterator, n:Int) => {
+	_take = (acc, i) => match (n > i) {
+		true -> match l.get(i) {
+			Maybe::Some(v) -> _take(acc ++ v, i + 1)
+			_              -> acc
+		}
+		false -> acc
+	}
+	_take(l.default(), 0)
+}
+
+# Return tail of Iterator from index i
+tail = (l:Iterator, i:Int) => l.fold_index((acc, e, ii) => match (i > ii) {
+	true -> acc
+	false -> acc ++ e
+})
+
+# Returns the Iterator without its first element.
+tail = (l:Iterator) => tail(l, 1)
 
 length = (list:Iterator) => {
 	_length = (i) => match list.get(i) {
@@ -207,22 +231,33 @@ length = (list:Iterator) => {
 	_length(0)
 }
 
-fold = (iter:Iterator, f:Fn, accumulator) => {
+fold = (iter:Iterator, accumulator, f:Fn) => {
 	_fold = (acc, i) => match iter.get(i) {
 		Maybe::Some(a) -> _fold(f(acc, a), i + 1)
 		_							 -> acc
 	}
 	_fold(accumulator, 0)
 }
+# Uses iter to create a default value as the accumulator
+fold = (iter:Iterator, f:Fn) => iter.fold(iter.default(), f)
 
-map = (iter:Iterator, f:Fn) => {
-	acc_fn = (acc, elem) => acc.append(f(elem))
-	fold(iter, acc_fn, iter.default()) 
+
+fold_index = (iter:Iterator, accumulator, f:Fn) => {
+	_fold = (acc, i) => match iter.get(i) {
+		Maybe::Some(a) -> _fold(f(acc, a, i), i + 1)
+		_							 -> acc
+	}
+	_fold(accumulator, 0)
 }
+# Uses iter to create a default value as the accumulator
+fold_index = (iter:Iterator, f:Fn) => iter.fold_index(iter.default(), f)
+
+
+map = (iter:Iterator, f:Fn) => fold(iter, (acc, elem) => acc.append(f(elem))) 
 
 
 # Expects the list to contain only Num
-sum = (list:List) => fold(list, add, 0)
+sum = (list:List) => fold(list, 0, add)
 
 # Create a list from a to b, with its corresponding index as content
 range = (a:Int, b:Int) => {
@@ -246,4 +281,43 @@ add = (a:Num, b:Num) => a + b
 # Doesnt really do anything, just a simple way to specify what the function expects instead of putting this into comments
 alias Char = Str
 
-# uppercase = (s:Char) => match s {
+
+has_prefix? = (a:Str, prefix:Str) =>
+	a.take(length(prefix)) == prefix
+
+has_prefix_at? = (a:Str, prefix:Str, i:Int) =>
+	a.tail(i).has_prefix?(prefix)
+
+is_whitespace? = (c:Char) => match c {
+	" " -> true
+	"\r" -> true
+	"\n" -> true
+	"\t" -> true
+	_		 -> false
+}
+
+split_by = (a:Str, by:Str) => {
+	panic("todo")
+}
+
+# Remves whitespace characters at the beginning of the string
+left_trim = (a:Str) => {
+	_left_trim = (i) => match a.get(i).map(is_whitespace?) {
+		Maybe::Some(true) -> _left_trim(i + 1)
+		_									-> a.tail(i)
+	}
+	_left_trim(0)
+}
+
+# Removes whitespace characters at the end of the string
+trim_right = (a:Str) => {
+	_trim_right = (i) => match a.get(i).map(is_whitespace?) {
+		Maybe::Some(true) -> _trim_right(i - 1)
+		_									-> a.take(i + 1)
+	}
+	_trim_right(a.length() - 1)
+}
+
+
+# Removes any whitespace characters that are present at the start or end of a string
+trim = (a:Str) => a.left_trim().trim_right()

@@ -43,6 +43,7 @@ func (c *Context) LoadBuiltins() {
 	c.LoadFunc("__string", c.rajaString)
 	c.LoadFunc("__args", c.rajaArgs)
 	c.LoadFunc("__exit", c.rajaExit)
+	c.LoadFunc("__read_file", c.rajaReadFile)
 
 	// Types/Alias
 	c.LoadAlias("Int", c.rajaAliasInt)
@@ -146,6 +147,27 @@ func (c *Context) rajaPrint(args []Value) (Value, *runtimeError) {
 
 	n, _ := os.Stdout.Write(outputString)
 	return IntValue(n), nil
+}
+
+func (c *Context) rajaReadFile(args []Value) (Value, *runtimeError) {
+	if err := c.requireArgLen("__print", args, 1); err != nil {
+		return nil, err
+	}
+
+	s, ok := args[0].(StringValue)
+	if !ok {
+		return nil, &runtimeError{
+			reason: fmt.Sprintf("Unexpected argument to print: %s", args[0]),
+		}
+	}
+
+	bs, err := os.ReadFile(string(s))
+	if err != nil {
+		return nil, &runtimeError{
+			reason: fmt.Sprintf("Could not read file: %s. Error: %s", s, err),
+		}
+	}
+	return StringValue(string(bs)), nil
 }
 
 func (c *Context) rajaArgs(_ []Value) (Value, *runtimeError) {
