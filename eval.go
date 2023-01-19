@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"fmt"
 	"io"
+	"math"
 	"sort"
 	"strconv"
 	"strings"
@@ -389,20 +390,33 @@ func incompatibleError(op tokKind, left, right Value, position pos) *runtimeErro
 	}
 }
 
+var divisionByZeroErr = runtimeError{
+	reason: fmt.Sprintf("Division by zero"),
+}
+
 func floatBinaryOp(op tokKind, left FloatValue, right FloatValue) (Value, *runtimeError) {
 	switch op {
 	case minus:
 		return FloatValue(left - right), nil
 	case plus:
 		return FloatValue(left + right), nil
+	case modulus:
+		if right == 0 {
+			return nil, &divisionByZeroErr
+		}
+		return FloatValue(math.Mod(float64(left), float64(right))), nil
 	case times:
 		return FloatValue(left * right), nil
 	case eq:
 		return BoolValue(left == right), nil
+	case geq:
+		return BoolValue(left >= right), nil
 	case greater:
 		return BoolValue(left > right), nil
 	case less:
 		return BoolValue(left < right), nil
+	case leq:
+		return BoolValue(left <= right), nil
 	case neq:
 		return BoolValue(left != right), nil
 	default:
@@ -418,10 +432,19 @@ func intBinaryOp(op tokKind, left IntValue, right IntValue) (Value, *runtimeErro
 		return IntValue(left + right), nil
 	case times:
 		return IntValue(left * right), nil
+	case modulus:
+		if right == 0 {
+			return nil, &divisionByZeroErr
+		}
+		return IntValue(left % right), nil
 	case greater:
 		return BoolValue(left > right), nil
 	case less:
 		return BoolValue(left < right), nil
+	case geq:
+		return BoolValue(left >= right), nil
+	case leq:
+		return BoolValue(left <= right), nil
 	case eq:
 		return BoolValue(left == right), nil
 	case neq:

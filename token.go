@@ -57,6 +57,7 @@ const (
 	plus
 	plusOther
 	minus
+	modulus
 	times
 	divide
 	and
@@ -65,6 +66,8 @@ const (
 	less
 	eq
 	neq
+	geq
+	leq
 
 	// keywords
 	matchKeyword
@@ -119,6 +122,8 @@ func (t token) String() string {
 		return "::"
 	case plus:
 		return "+"
+	case modulus:
+		return "%"
 	case plusOther:
 		return "++"
 	case minus:
@@ -139,6 +144,10 @@ func (t token) String() string {
 		return "=="
 	case neq:
 		return "!="
+	case geq:
+		return ">="
+	case leq:
+		return "<="
 	case matchKeyword:
 		return "match"
 	case aliasKeyword:
@@ -342,9 +351,19 @@ func (t *tokenizer) nextToken() token {
 		return token{kind: plus, pos: t.currentPos()}
 	case '*':
 		return token{kind: times, pos: t.currentPos()}
+	case '%':
+		return token{kind: modulus, pos: t.currentPos()}
 	case '>':
+		if !t.isEOF() && t.peek() == '=' {
+			t.next()
+			return token{kind: geq, pos: t.currentPos()}
+		}
 		return token{kind: greater, pos: t.currentPos()}
 	case '<':
+		if !t.isEOF() && t.peek() == '=' {
+			t.next()
+			return token{kind: leq, pos: t.currentPos()}
+		}
 		return token{kind: less, pos: t.currentPos()}
 	case '-':
 		if !t.isEOF() && t.peek() == '>' {

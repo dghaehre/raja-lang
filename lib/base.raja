@@ -8,8 +8,8 @@
 string = (a) => __string(a)
 print = (a) => __print(a)
 get_args = () => __args()
-get_unsafe = (a, b) => __index(a, b, true)
-get = (a, b) => __index(a, b, false)
+get_unsafe = (a:Iterator, b:Int) => __index(a, b, true)
+get = (a:Iterator, b:Int) => __index(a, b, false)
 exit = (a) => __exit(a)
 
 
@@ -189,8 +189,8 @@ and_then = (m:Maybe, f:Fn) => match res {
 }
 
 to_result = (m:Maybe, err) => match m {
-	Maybe::Ok(a)	-> to_ok(a)
-	Maybe::None		-> to_err(err)
+	Maybe::Some(a)	-> to_ok(a)
+	Maybe::None			-> to_err(err)
 }
 
 
@@ -199,9 +199,9 @@ to_result = (m:Maybe, err) => match m {
 # List
 #
 
-head = (list:Iterator) => list.get(0)
+head = (l:Iterator) => l.get(0)
 
-last = (a) => a.get(a.length() - 1)
+last = (l:Iterator) => l.get(l.length() - 1)
 
 length = (list:Iterator) => {
 	_length = (i) => match list.get(i) {
@@ -230,8 +230,7 @@ sum = (list:List) => fold(list, add, 0)
 
 # Create a list from a to b, with its corresponding index as content
 range = (a:Int, b:Int) => {
-	assert(b > a, "First argument in range needs to be bigger than second argument")
-	_range = (l, i) => match (b > i) {
+	_range = (l, i) => match (b >= i) {
 		true -> _range(l ++ [i], i + 1)
 		false -> l
 	}

@@ -223,7 +223,7 @@ func (p *parser) parseEnum(tok token) (astNode, error) {
 	if len(args) > 0 {
 		_, err = p.expect(rightParen)
 		if err != nil {
-			 return nil, err
+			return nil, err
 		}
 	}
 	return enumNode{
@@ -548,8 +548,8 @@ func (p *parser) parseNode() (astNode, error) {
 		switch p.peek().kind {
 		case assign:
 			return p.parseAssignment(node)
-		case plus, minus, times, divide, plusOther, eq, neq, greater, less:
-			// TODO: add: and, or, geq, leq:
+		case plus, minus, times, divide, plusOther, eq, neq, greater, less, modulus, geq, leq:
+			// TODO: add: and, or:
 			//
 			// We keep looping here because we want to adhere to order of operations.
 			// Which means that there might be more binary operations coming, and we need to catch them here.
