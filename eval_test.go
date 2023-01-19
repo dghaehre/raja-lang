@@ -172,7 +172,7 @@ func TestResultAlias(t *testing.T) {
 		.to_err()
 		.map((a) => a.append(" !"))
 		.map_err((a) => "Err: " ++ a)
-		.unwrap()
+		.unwrap_err()
 
 	[val_ok, val_err]
 	`

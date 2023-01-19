@@ -7,7 +7,7 @@
 
 string = (a) => __string(a)
 print = (a) => __print(a)
-get_args = (a) => __args(a)
+get_args = () => __args()
 get_unsafe = (a, b) => __index(a, b, true)
 get = (a, b) => __index(a, b, false)
 exit = (a) => __exit(a)
@@ -60,6 +60,12 @@ panic = (a) => {
 	exit(1)
 }
 
+panic = (a, b) => {
+	println("Panic: ", a, b)
+	exit(1)
+}
+
+
 assert = (a, explanation:Str) => match a {
 	true -> a
 	_		 ->  {
@@ -106,21 +112,30 @@ to_ok = (a) => Result::Ok(a)
 
 to_err = (a) => Result::Err(a)
 
-unwrap = (r:Result) => r.get_unsafe(0)
+unwrap = (r:Result) => match r {
+	Result::Ok(a) -> a
+	Result::Err(_) -> panic("Trying to unwrap:", r)
+}
+
+unwrap_err = (r:Result) => match r {
+	Result::Err(e) -> e
+	Result::Ok(_) -> panic("Trying to unwrap_err:", r)
+}
+
 
 map = (r:Result, f:Fn) => match r {
-	Result::Ok(_) -> Result::Ok(f(r.unwrap()))
+	Result::Ok(a) -> Result::Ok(f(a))
 	_							-> r
 }
 
 map_err = (r:Result, f:Fn) => match r {
-	Result::Err(_) -> Result::Err(f(r.unwrap()))
+	Result::Err(a) -> Result::Err(f(a))
 	_							-> r
 }
 
-unwrap_or = (r:Result, a) => match r {
-	Result::Ok(_) -> r.unwrap()
-	_							-> a
+unwrap_or = (r:Result, o) => match r {
+	Result::Ok(a) -> a
+	_							-> o
 }
 
 and = (res:Result, a:Result) => match res {
@@ -129,12 +144,12 @@ and = (res:Result, a:Result) => match res {
 }
 
 and_then = (res:Result, f:Fn) => match res {
-	Result::Ok(_) -> f(res.unwrap())
+	Result::Ok(a) -> f(a)
 	_							-> res
 }
 
 to_maybe = (res:Result) => match res {
-	Result::Ok(_) -> to_some(res.unwrap())
+	Result::Ok(a) -> to_some(a)
 	_							-> Maybe::None
 }
 
@@ -148,16 +163,19 @@ alias Maybe =
 
 to_some = (a) => Maybe::Some(a)
 
-unwrap = (m:Maybe) => m.get_unsafe(0)
+unwrap = (m:Maybe) => match m {
+	Maybe::Some(a) -> a
+	Maybe::None		 -> panic("Trying to unwrap Maybe::None")
+}
 
 map = (m:Maybe, f:Fn) => match m {
-	Maybe::Some(_) -> Maybe::Some(f(m.unwrap()))
+	Maybe::Some(a) -> Maybe::Some(f(a))
 	_							 -> m
 }
 
-unwrap_or = (m:Maybe, a) => match m {
-	Maybe::Some(_) -> m.unwrap()
-	_							 -> a
+unwrap_or = (m:Maybe, o) => match m {
+	Maybe::Some(a) -> a
+	_							 -> o
 }
 
 and = (m:Maybe, a) => match m {
@@ -166,12 +184,12 @@ and = (m:Maybe, a) => match m {
 }
 
 and_then = (m:Maybe, f:Fn) => match res {
-	Maybe::Some(_) -> f(m.unwrap())
+	Maybe::Some(a) -> f(a)
 	_							 -> res
 }
 
 to_result = (m:Maybe, err) => match m {
-	Maybe::Ok(_)	-> to_ok(m.unwrap())
+	Maybe::Ok(a)	-> to_ok(a)
 	Maybe::None		-> to_err(err)
 }
 
@@ -184,23 +202,17 @@ to_result = (m:Maybe, err) => match m {
 # TODO: fold
 
 length = (list:Iterator) => {
-	_length = (l, i) => match l.get(i) {
+	_length = (i) => match list.get(i) {
 		Maybe::None -> i
-		_ -> _length(l, (i + 1))
+		_						-> _length(i + 1)
 	}
-	_length(list, 0)
+	_length(0)
 }
 
 fold = (iter:Iterator, f:Fn, accumulator) => {
-	_fold = (acc, i) => {
-		x = iter.get(i)
-		match x {
-			Maybe::Some(_) -> {
-				res = f(acc, x.unwrap())
-				_fold(res, i + 1)
-			}
-			_ -> acc
-		}
+	_fold = (acc, i) => match iter.get(i) {
+		Maybe::Some(a) -> _fold(f(acc, a), i + 1)
+		_							 -> acc
 	}
 	_fold(accumulator, 0)
 }
@@ -214,16 +226,11 @@ map = (iter:Iterator, f:Fn) => {
 # Expects the list to contain only Num
 sum = (list:List) => {
 	_sum = (l, i, s) => match l.get(i) {
-		Maybe::Some(_) -> {
-			v = l.get(i)
-			newsum = v.unwrap() + s
-			_sum(l, (i + 1), newsum)
-		}
-		_ -> s
+		Maybe::Some(a) -> _sum(l, (i + 1), (a + s))
+		_							 -> s
 	}
 	_sum(list, 0, 0)
 }
-
 
 # Create a list from a to b, with its corresponding index as content
 range = (a:Int, b:Int) => {
@@ -243,7 +250,7 @@ increment = (n:Num) => n + 1
 
 # Str functions
 
-# Doesnt really do anything, just a simple way to specify what the function expects
+# Doesnt really do anything, just a simple way to specify what the function expects instead of putting this into comments
 alias Char = Str
 
 # uppercase = (s:Char) => match s {

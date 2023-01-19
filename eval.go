@@ -648,17 +648,111 @@ func (c *Context) evalMatchNode(n matchNode, sc scope) (Value, *runtimeError) {
 		return nil, err
 	}
 	for _, v := range n.branches {
-		t, err := c.evalExpr(v.target, sc)
+		t, bodyScope, err := c.evalMatchBranchExpr(v.target, sc, cond)
 		if err != nil {
 			return nil, err
 		}
 		if cond.Eq(t) {
-			return c.evalExpr(v.body, sc)
+			return c.evalExpr(v.body, bodyScope)
 		}
 	}
 	return nil, &runtimeError{
 		reason: fmt.Sprintf("No patterns matched in match expression: %s", n.String()),
 		pos:    n.pos(),
+	}
+}
+
+// Return a list of values from:
+// - EnumValue
+// - ListValue
+//
+// Other Values returns an empty list
+func getIndexValuesFromValue(value Value, max int) []Value {
+	condArgs := []Value{}
+	switch v := value.(type) {
+	case EnumValue:
+		condArgs = v.args
+	case *ListValue:
+		for i, vv := range *v {
+			if i > max {
+				break
+			}
+			condArgs = append(condArgs, vv)
+		}
+	}
+	return condArgs
+}
+
+// This is a wrapper around evalExpr to make the pattern matching with the match keyword better.
+// It handles the listed nodes in a special way:
+// - identifierNode
+// - enumNode
+// - listNode
+//
+// If the given node is one of these nodes, it will look for identifierNode's inside the original node.
+// If it finds one, it will:
+// - substitue the identifierNode with an underscoreNode
+// - put that identifierNode/identifierValue into scope to be used in the body of that branch
+func (c *Context) evalMatchBranchExpr(node astNode, sc scope, cond Value) (Value, scope, *runtimeError) {
+	// Creating a new scope for the body of the target branch.
+	bodyScope := scope{
+		parent: &sc,
+		vars:   map[string]Value{},
+	}
+
+	switch n := node.(type) {
+	case identifierNode:
+		bodyScope.put(n.payload, cond, n.pos())
+		return underscorevalue, bodyScope, nil
+	case enumNode:
+		condArgs := getIndexValuesFromValue(cond, len(n.args))
+		var err *runtimeError
+		elems := make([]Value, len(n.args))
+		for i, elNode := range n.args {
+			if i >= len(condArgs) {
+				// This is to prevent us from causing a panic with condArgs[i]
+				break
+			}
+			switch en := elNode.(type) {
+			case identifierNode:
+				bodyScope.put(en.payload, condArgs[i], n.pos())
+				elems[i] = underscorevalue
+			default:
+				elems[i], err = c.evalExpr(elNode, sc)
+				if err != nil {
+					return nil, sc, err
+				}
+			}
+		}
+		return EnumValue{
+			name:   n.name,
+			parent: n.parent,
+			args:   elems,
+		}, bodyScope, nil
+	case listNode:
+		condArgs := getIndexValuesFromValue(cond, len(n.elems))
+		listValue := make(ListValue, len(n.elems))
+		for i, elNode := range n.elems {
+			if i >= len(condArgs) {
+				// This is to prevent us from causing a panic with condArgs[i]
+				break
+			}
+			switch en := elNode.(type) {
+			case identifierNode:
+				bodyScope.put(en.payload, condArgs[i], n.pos())
+				listValue[i] = underscorevalue
+			default:
+				v, err := c.evalExpr(elNode, sc)
+				listValue[i] = v
+				if err != nil {
+					return nil, sc, err
+				}
+			}
+		}
+		return &listValue, bodyScope, nil
+	default:
+		v, err := c.evalExpr(node, sc)
+		return v, sc, err
 	}
 }
 
