@@ -29,9 +29,6 @@ func main() {
 		// TODO: repl
 		os.Exit(0)
 	}
-	if len(os.Args) == 2 {
-		runFile(os.Args[1])
-		os.Exit(0)
-	}
-	fmt.Println("only one argument allowed for now")
+	runFile(os.Args[1])
+	os.Exit(0)
 }

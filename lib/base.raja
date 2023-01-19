@@ -199,7 +199,9 @@ to_result = (m:Maybe, err) => match m {
 # List
 #
 
-# TODO: fold
+head = (list:Iterator) => list.get(0)
+
+last = (a) => a.get(a.length() - 1)
 
 length = (list:Iterator) => {
 	_length = (i) => match list.get(i) {
@@ -224,13 +226,7 @@ map = (iter:Iterator, f:Fn) => {
 
 
 # Expects the list to contain only Num
-sum = (list:List) => {
-	_sum = (l, i, s) => match l.get(i) {
-		Maybe::Some(a) -> _sum(l, (i + 1), (a + s))
-		_							 -> s
-	}
-	_sum(list, 0, 0)
-}
+sum = (list:List) => fold(list, add, 0)
 
 # Create a list from a to b, with its corresponding index as content
 range = (a:Int, b:Int) => {
@@ -246,6 +242,8 @@ range = (a:Int, b:Int) => {
 # Num functions
 
 increment = (n:Num) => n + 1
+
+add = (a:Num, b:Num) => a + b
 
 
 # Str functions
