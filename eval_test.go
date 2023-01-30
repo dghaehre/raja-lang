@@ -262,7 +262,7 @@ func TestBaseMergeHelperSort(t *testing.T) {
 	p := `
 	x = [1, 4, 9]
 	y = [2, 3, 8]
-	_merge_msort(x, y)
+	_merge_msort(x, y, SortOrder::Asc)
 `
 	expectProgramToReturn(t, p, &ListValue{IntValue(1), IntValue(2), IntValue(3), IntValue(4), IntValue(8), IntValue(9)})
 }
