@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"os"
+	"strconv"
 )
 
 type builtinFn func([]Value) (Value, *runtimeError)
@@ -41,6 +42,7 @@ func (c *Context) LoadBuiltins() {
 	c.LoadFunc("__print", c.rajaPrint)
 	c.LoadFunc("__index", c.rajaIndex)
 	c.LoadFunc("__string", c.rajaString)
+	c.LoadFunc("__int", c.rajaInt)
 	c.LoadFunc("__args", c.rajaArgs)
 	c.LoadFunc("__exit", c.rajaExit)
 	c.LoadFunc("__read_file", c.rajaReadFile)
@@ -98,6 +100,22 @@ func toNone() Value {
 	}
 }
 
+func toOk(v Value) Value {
+	return EnumValue{
+		parent: "Result",
+		name:   "Ok",
+		args:   []Value{v},
+	}
+}
+
+func toErr(v Value) Value {
+	return EnumValue{
+		parent: "Result",
+		name:   "Err",
+		args:   []Value{v},
+	}
+}
+
 // Builtin functions
 
 func (c *Context) rajaString(args []Value) (Value, *runtimeError) {
@@ -112,26 +130,21 @@ func (c *Context) rajaString(args []Value) (Value, *runtimeError) {
 	}
 }
 
-// func (c *Context) rajaInt(args []Value) (Value, *runtimeError) {
-// 	if err := c.requireArgLen("__index", args, 2); err != nil {
-// 		return nil, err
-// 	}
-// 	var unsafe bool
-// 	switch u := args[1].(type) {
-// 	case BoolValue:
-// 		unsafe = bool(u)
-// 	default:
-// 		return nil, &runtimeError{
-// 			reason: fmt.Sprintf("Unexpected argument to __index: %s. Expected a bool as the third argument.", args[2]),
-// 		}
-// 	}
-// 	switch arg := args[0].(type) {
-// 	case *StringValue:
-// 		return arg, nil
-// 	default:
-// 		return StringValue(arg.String()), nil
-// 	}
-// }
+func (c *Context) rajaInt(args []Value) (Value, *runtimeError) {
+	if err := c.requireArgLen("__string", args, 1); err != nil {
+		return nil, err
+	}
+	switch arg := args[0].(type) {
+	case StringValue:
+		i, err := strconv.Atoi(string(arg))
+		if err != nil {
+			return toErr(StringValue(err.Error())), nil
+		}
+		return toOk(IntValue(i)), nil
+	default:
+		return toErr(StringValue(fmt.Sprintf("Cannot cast %s to int", arg))), nil
+	}
+}
 
 func (c *Context) rajaPrint(args []Value) (Value, *runtimeError) {
 	if err := c.requireArgLen("__print", args, 1); err != nil {

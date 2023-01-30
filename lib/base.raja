@@ -6,6 +6,8 @@
 # (builtin) functions cannot be overloaded.
 
 string = (a) => __string(a)
+int = (a:Str) => __int(a)
+float = (a:Str) => __float(a)
 print = (a) => __print(a)
 read_file = (a:Str) => __read_file(a)
 get_args = () => __args()
@@ -203,32 +205,28 @@ head = (l:Iterator) => l.get(0)
 last = (l:Iterator) => l.get(l.length() - 1)
 
 # Take n from Iterator
-take = (l:Iterator, n:Int) => {
-	_take = (acc, i) => match (n > i) {
-		true -> match l.get(i) {
-			Maybe::Some(v) -> _take(acc ++ v, i + 1)
-			_              -> acc
-		}
-		false -> acc
+take = (l:Iterator, n:Int) => l.take(n, 0, l.default())
+take = (l:Iterator, n:Int, i:Int, acc:Iterator) => match (n > i) {
+	true -> match l.get(i) {
+		Maybe::Some(v) -> l.take(n, i + 1, acc ++ v)
+		_              -> acc
 	}
-	_take(l.default(), 0)
+	false -> acc
 }
 
-# Return tail of Iterator from index i
+# Returns the Iterator without its first element.
+# Given a second argument it returns the tail from index i
+tail = (l:Iterator) => tail(l, 1)
 tail = (l:Iterator, i:Int) => l.fold_index((acc, e, ii) => match (i > ii) {
 	true -> acc
 	false -> acc ++ e
 })
 
-# Returns the Iterator without its first element.
-tail = (l:Iterator) => tail(l, 1)
 
-length = (list:Iterator) => {
-	_length = (i) => match list.get(i) {
-		Maybe::None -> i
-		_						-> _length(i + 1)
-	}
-	_length(0)
+length = (list:Iterator) => list.length(0)
+length = (list:Iterator, i:Int) => match list.get(i) {
+	Maybe::None -> i
+	_						-> list.length(i + 1)
 }
 
 fold = (iter:Iterator, accumulator, f:Fn) => {
@@ -242,30 +240,37 @@ fold = (iter:Iterator, accumulator, f:Fn) => {
 fold = (iter:Iterator, f:Fn) => iter.fold(iter.default(), f)
 
 
-fold_index = (iter:Iterator, accumulator, f:Fn) => {
-	_fold = (acc, i) => match iter.get(i) {
-		Maybe::Some(a) -> _fold(f(acc, a, i), i + 1)
-		_							 -> acc
-	}
-	_fold(accumulator, 0)
+# As a normal fold, but the function given needs to take three parameters:
+# acc, element, i:Int
+fold_index = (iter:Iterator, f:Fn) => iter.fold_index(iter.default(), f, 0)
+fold_index = (iter:Iterator, acc, f:Fn) => iter.fold_index(acc, f, 0)
+fold_index = (iter:Iterator, acc, f:Fn, i:Int) => match iter.get(i) {
+	Maybe::Some(a) -> iter.fold_index(f(acc, a, i), f, i + 1)
+		_						 -> acc
 }
-# Uses iter to create a default value as the accumulator
-fold_index = (iter:Iterator, f:Fn) => iter.fold_index(iter.default(), f)
 
 
-map = (iter:Iterator, f:Fn) => fold(iter, (acc, elem) => acc.append(f(elem))) 
+map = (iter:Iterator, f:Fn) => iter.fold((acc, elem) => acc.append(f(elem)))
+
+map_index = (iter:Iterator, f:Fn) => iter.fold_index((acc, elem, i) => acc.append(f(elem, i)))
+
+# Map over only the last the last element
+map_last = (iter:Iterator, f:Fn) => iter.map_last(f, length(iter) - 1)
+map_last = (iter:Iterator, f:Fn, n:Int) => iter.fold_index((acc, elem, i) => match (i == n) {
+	true	-> acc.append(f(elem))
+	false -> acc.append(elem)
+})
 
 
 # Expects the list to contain only Num
 sum = (list:List) => fold(list, 0, add)
 
+
 # Create a list from a to b, with its corresponding index as content
-range = (a:Int, b:Int) => {
-	_range = (l, i) => match (b >= i) {
-		true -> _range(l ++ [i], i + 1)
-		false -> l
-	}
-	_range([], a)
+range = (a:Int, b:Int) => range([], a, b)
+range = (l:List, i:Int, b:Int) => match (b >= i) {
+	true -> range(l ++ [i], i + 1, b)
+	false -> l
 }
 
 
@@ -296,28 +301,84 @@ is_whitespace? = (c:Char) => match c {
 	_		 -> false
 }
 
-split_by = (a:Str, by:Str) => {
-	panic("todo")
+split_by = (a:Str, by:Str) => a.split_by(by, [], 0)
+split_by = (a:Str, by:Str, acc:List, i:Int) => match a.has_prefix_at?(by, i) {
+	true -> a.split_by(by, [acc, []], i + by.length())
+	false -> match a.get(i) {
+			Maybe::Some(v) -> match acc.length() {
+				0 -> a.split_by(by, [v], i + 1)
+				_ -> {
+					newacc = acc.map_last((x) => x ++ a.get_unsafe(i))
+					a.split_by(by, newacc, i + 1)
+				}
+			}
+			Maybe::None -> acc
+	}
 }
 
 # Remves whitespace characters at the beginning of the string
-left_trim = (a:Str) => {
-	_left_trim = (i) => match a.get(i).map(is_whitespace?) {
-		Maybe::Some(true) -> _left_trim(i + 1)
-		_									-> a.tail(i)
-	}
-	_left_trim(0)
+trim_left = (a:Str) => a.trim_left(0)
+trim_left = (a:Str, i:Int) => match a.get(i).map(is_whitespace?) {
+	Maybe::Some(true) -> a.trim_left(i + 1)
+	_									-> a.tail(i)
 }
 
+
 # Removes whitespace characters at the end of the string
-trim_right = (a:Str) => {
-	_trim_right = (i) => match a.get(i).map(is_whitespace?) {
-		Maybe::Some(true) -> _trim_right(i - 1)
-		_									-> a.take(i + 1)
-	}
-	_trim_right(a.length() - 1)
+trim_right = (a:Str) => a.trim_right(a.length() - 1)
+trim_right = (a:Str, i:Int) => match a.get(i).map(is_whitespace?) {
+	Maybe::Some(true) -> trim_right(a, i - 1)
+		_								-> a.take(i + 1)
 }
 
 
 # Removes any whitespace characters that are present at the start or end of a string
-trim = (a:Str) => a.left_trim().trim_right()
+trim = (a:Str) => a.trim_left().trim_right()
+
+
+
+#
+# Sorting
+#
+
+alias SortOrder =
+		SortOrder::Asc
+	| SortOrder::Desc
+
+# Divide list in two separate lists
+into_two = (list:List) => {
+	index = list.length() / 2
+	[list.take(index), list.tail(index)]
+}
+
+# Takes in to already sorted lists, and merges them
+_merge_msort = (left:List, right:List, so:SortOrder) => match [left, right] {
+	[[], []] -> []
+	[xs, []] -> xs
+	[[], ys] -> ys
+	[l, r]   -> match so {
+		SortOrder::Asc -> match ((l.head().unwrap()) < (r.head().unwrap())) {
+			true -> [l.head().unwrap()].append(_merge_msort(r, l.tail(), so))
+			_    -> [r.head().unwrap()].append(_merge_msort(l, r.tail(), so))
+		}
+		SortOrder::Desc -> match ((l.head().unwrap()) > (r.head().unwrap())) {
+			true -> [l.head().unwrap()].append(_merge_msort(r, l.tail(), so))
+			_    -> [r.head().unwrap()].append(_merge_msort(l, r.tail(), so))
+		}
+	}
+}
+
+msort = (list:List, so:SortOrder) => match list.length() {
+	0, 1 -> list
+	_    -> {
+		divided = list.into_two()
+		left = msort(divided.get(0).unwrap(), so)
+		right = msort(divided.get(1).unwrap(), so)
+		_merge_msort(left, right, so)
+	}
+}
+
+# Default sorting algorithm is currently merge sort
+# Default is ASC, but can be specified
+sort = (list:List) => list.msort(SortOrder::Asc)
+sort = (list:List, so:SortOrder) => list.msort(so)

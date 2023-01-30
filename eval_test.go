@@ -187,7 +187,7 @@ func TestListFunctions(t *testing.T) {
 }
 
 func TestPrecedence(t *testing.T) {
-  p := `
+	p := `
 concat_some_strings = (a, b, c) => {
   a.string() ++ " " ++ b.string() ++ " " ++ c.string()
 }
@@ -197,7 +197,7 @@ concat_some_strings(1, 2, 3)
 }
 
 func TestBaseTrim(t *testing.T) {
-  p := `
+	p := `
 	x = " some string  "
 	x.trim()
 `
@@ -205,7 +205,7 @@ func TestBaseTrim(t *testing.T) {
 }
 
 func TestBaseTake(t *testing.T) {
-  p := `
+	p := `
 	x = "some string"
   x.take(2)
 `
@@ -213,17 +213,56 @@ func TestBaseTake(t *testing.T) {
 }
 
 func TestBaseHasPrefixAt(t *testing.T) {
-  p := `
+	p := `
 	x = "some string"
   [x.has_prefix_at?("me", 2), x.has_prefix_at?("str", 3)]
 `
 	expectProgramToReturn(t, p, &ListValue{BoolValue(true), BoolValue(false)})
 }
 
-// func TestBaseSplitBy(t *testing.T) {
-//   p := `
-// 	x = "some, string, that does, something"
-//   x.split_by(", ")
-// `
-// 	expectProgramToReturn(t, p, &ListValue{StringValue("some"), StringValue("string"), StringValue("that does"), StringValue("something")})
+func TestBaseSplitBy(t *testing.T) {
+	p := `
+	x = "some, string, that does, something"
+  x.split_by(", ")
+`
+	expectProgramToReturn(t, p, &ListValue{StringValue("some"), StringValue("string"), StringValue("that does"), StringValue("something")})
+}
+
+func TestBaseMapLast(t *testing.T) {
+	p := `
+	x = [1, 2, 3]
+	times = (n) => (a) => a * n
+	x.map_last(times(10))
+`
+	expectProgramToReturn(t, p, &ListValue{IntValue(1), IntValue(2), IntValue(30)})
+}
+
+// TODO
+// func TestVariableModificationInClosure(t *testing.T) {
+// 	p := `
+// 	x = [1]
+// 	mut_var := "hello"
+// 	x.map((v) => {
+// 		mut_var = "world"
+// 	})
+// 	mut_var
+// 	`
+// 	expectProgramToReturn(t, p, StringValue("world"))
 // }
+
+func TestBaseSort(t *testing.T) {
+	p := `
+	x = [4, 2, 9, 1, 6, 7, 5, 6, 6]
+	x.sort()
+`
+	expectProgramToReturn(t, p, &ListValue{IntValue(1), IntValue(2), IntValue(4), IntValue(5), IntValue(6), IntValue(6), IntValue(6), IntValue(7), IntValue(9)})
+}
+
+func TestBaseMergeHelperSort(t *testing.T) {
+	p := `
+	x = [1, 4, 9]
+	y = [2, 3, 8]
+	_merge_msort(x, y)
+`
+	expectProgramToReturn(t, p, &ListValue{IntValue(1), IntValue(2), IntValue(3), IntValue(4), IntValue(8), IntValue(9)})
+}

@@ -329,6 +329,7 @@ func (sc *scope) put(name string, v Value, pos pos) *runtimeError {
 		}
 	default:
 		if isMutable(name) {
+			// TODO: how do we not know we want to "update" a variable in the outer scope?
 			sc.vars[name] = v
 			return nil
 		}
@@ -400,6 +401,11 @@ func floatBinaryOp(op tokKind, left FloatValue, right FloatValue) (Value, *runti
 		return FloatValue(left - right), nil
 	case plus:
 		return FloatValue(left + right), nil
+	case divide:
+		if right == 0 {
+			return nil, &divisionByZeroErr
+		}
+		return FloatValue(left / right), nil
 	case modulus:
 		if right == 0 {
 			return nil, &divisionByZeroErr
@@ -432,6 +438,11 @@ func intBinaryOp(op tokKind, left IntValue, right IntValue) (Value, *runtimeErro
 		return IntValue(left + right), nil
 	case times:
 		return IntValue(left * right), nil
+	case divide:
+		if right == 0 {
+			return nil, &divisionByZeroErr
+		}
+		return IntValue(left / right), nil
 	case modulus:
 		if right == 0 {
 			return nil, &divisionByZeroErr
