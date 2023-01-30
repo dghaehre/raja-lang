@@ -1,0 +1,17 @@
+
+input = "./examples/aoc/aoc-input.txt"
+
+to_int = (a:Str) => a.trim().int().unwrap()
+
+sum_calories = (a:Str) => a.split_by("\n").map(to_int).sum()
+
+read_file(input)
+	.trim()
+	.split_by("\n\n")
+	.map(sum_calories)
+	.sort(SortOrder::Desc)
+	.head()
+	.unwrap()
+	.string()
+	.prepend("Answer: ")
+	.println()
