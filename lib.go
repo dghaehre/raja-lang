@@ -26,7 +26,7 @@ func (c *Context) LoadLib(name string) (Value, *runtimeError) {
 		}
 	}
 
-	v, err := c.Eval(strings.NewReader(program))
+	v, err := c.Eval(strings.NewReader(program), "")
 	if err != nil {
 		if runtimeErr, ok := err.(*runtimeError); ok {
 			return nil, runtimeErr

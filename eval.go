@@ -359,23 +359,18 @@ func (sc *scope) get(name string) (Value, *runtimeError) {
 
 // Eval
 
-func (c *Context) Eval(reader io.Reader) (Value, error) {
+func (c *Context) Eval(reader io.Reader, filename string) (Value, error) {
 	program, err := io.ReadAll(reader)
 	if err != nil {
 		return nil, err
 	}
-	tokenizer := newTokenizer(string(program))
+	tokenizer := newTokenizer(string(program), filename)
 	tokens := tokenizer.tokenize()
-	// fmt.Printf("tokens: %v\n", tokens)
 	parser := newParser(tokens)
 	nodes, err := parser.parse()
 	if err != nil {
 		return nil, err
 	}
-	// fmt.Println("Parsed:")
-	// for _, n := range nodes {
-	// 	fmt.Println(n)
-	// }
 	v, runtimeErr := c.evalNodes(nodes)
 	if runtimeErr != nil {
 		return nil, runtimeErr
@@ -842,7 +837,6 @@ func (c *Context) evalExpr(node astNode, sc scope) (Value, *runtimeError) {
 			parent: &sc,
 			vars:   map[string]Value{},
 		}
-
 		last := len(n.exprs) - 1
 		for _, expr := range n.exprs[:last] {
 			_, err := c.evalExpr(expr, blockScope)

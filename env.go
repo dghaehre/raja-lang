@@ -54,6 +54,7 @@ func (c *Context) LoadBuiltins() {
 	c.LoadAlias("List", c.rajaAliasList)
 	c.LoadAlias("Fn", c.rajaAliasFn)
 	c.LoadAlias("Enum", c.rajaAliasEnum)
+	// TODO: Bool
 
 	_, err := c.LoadLib("base")
 	if err != nil {

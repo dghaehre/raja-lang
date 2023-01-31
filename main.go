@@ -1,6 +1,7 @@
 package main
 
 import (
+	"flag"
 	"fmt"
 	"os"
 )
@@ -14,21 +15,41 @@ func runFile(filePath string) {
 	defer file.Close()
 	c := NewContext()
 	c.LoadBuiltins()
-	_, err = c.Eval(file)
+	_, err = c.Eval(file, filePath)
 	if err != nil {
 		fmt.Println(err)
+	}
+}
+
+func checkFile(filePath string) {
+	file, err := os.Open(filePath)
+	if err != nil {
+		fmt.Printf("Could not open %s: %s\n", filePath, err)
 		os.Exit(1)
 	}
-	// if v != nil {
-	// 	fmt.Println(v)
-	// }
+	defer file.Close()
+	c := NewTypecheckContext()
+	// c.LoadBuiltins()
+	_, err = c.Typecheck(file, filePath)
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+	colorPrintln(ColorGreen, "No type errors found!")
 }
 
 func main() {
-	if len(os.Args) == 1 {
+	check := flag.Bool("check", false, "only typecheck")
+	flag.Parse()
+	args := flag.Args()
+	if len(args) == 0 {
 		// TODO: repl
-		os.Exit(0)
+		fmt.Println("TODO: repl")
+		return
 	}
-	runFile(os.Args[1])
-	os.Exit(0)
+	if *check {
+		checkFile(args[0])
+		return
+	}
+	runFile(args[0])
 }
