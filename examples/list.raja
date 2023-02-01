@@ -1,8 +1,5 @@
+org = range(1, 1000)
 
-org = [1, 2, 3]
+org.map(increment).last().unwrap().println()
 
-org.map(increment).println()
-
-name = "messi"
-
-name.map((a) => a ++ " !").println()
+println(org.length() == 1000)

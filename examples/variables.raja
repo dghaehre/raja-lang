@@ -1,7 +1,7 @@
 # This is a comment
 a = 10
 b = 20
-# c = (10 + 20)
+c = "hello "
+d = "world"
 
-print(string(a + b))
-
+println(c ++ d)
