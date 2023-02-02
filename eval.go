@@ -3,6 +3,7 @@ package main
 import (
 	"bytes"
 	"fmt"
+	color "github.com/dghaehre/termcolor"
 	"io"
 	"math"
 	"sort"
@@ -33,7 +34,8 @@ func (e *runtimeError) Error() string {
 	for i, entry := range e.stackTrace {
 		trace[i] = entry.String()
 	}
-	return fmt.Sprintf("Runtime error %s: %s\n%s", e.pos, e.reason, strings.Join(trace, "\n"))
+	header := color.Str(color.Red, "Runtime error")
+	return fmt.Sprintf("%s at %s:\n\n%s\n%s", header, e.pos, e.reason, strings.Join(trace, "\n"))
 }
 
 type scope struct {
