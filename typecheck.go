@@ -2,18 +2,36 @@ package main
 
 import (
 	"fmt"
+	color "github.com/dghaehre/termcolor"
 	"io"
 )
 
-// TODO: we want to collect all of the typecheck errors instead of failing once we hit one.
+// TODO: use something like typedAstValue instead of astNode.
+// astNode can be extended.
+
+type multipleErrors struct {
+	errors []typecheckError
+}
+
+func (me multipleErrors) Error() string {
+	s := ""
+	for i, v := range me.errors {
+		if i > 0 {
+			s += "\n\n"
+		}
+		s += v.Error()
+	}
+	return s
+}
+
 type typecheckError struct {
 	reason string
 	pos
 }
 
 func (e *typecheckError) Error() string {
-	head := colorize(ColorRed, "Type error")
-	return fmt.Sprintf("%s at %s:\n%s", head, e.pos, e.reason)
+	head := color.Str(color.Red, "Type error")
+	return fmt.Sprintf("%s: at %s:\n%s", head, e.pos, e.reason)
 }
 
 type typecheckScope struct {
@@ -42,6 +60,7 @@ func (sc *typecheckScope) get(name string) (astNode, *typecheckError) {
 
 type TypecheckContext struct {
 	typecheckScope
+	multipleErrors
 }
 
 func NewTypecheckContext() TypecheckContext {
@@ -127,26 +146,28 @@ func (c *TypecheckContext) typecheckBinaryNode(n binaryNode, sc typecheckScope) 
 	switch n.op {
 	case and, or:
 		if !isBool(leftComputed) || !isBool(rightComputed) {
-			return nil, &typecheckError{
+			c.errors = append(c.errors, typecheckError{
 				reason: fmt.Sprintf("%s operator only works with bool. %s and %s was used", n, leftComputed, rightComputed),
 				pos:    n.pos(),
-			}
+			})
 		}
 		return n, nil
 	case plus, divide, modulus, times:
 		if !isNum(leftComputed) || !isNum(rightComputed) {
-			return nil, &typecheckError{
-				reason: fmt.Sprintf("%s operator only works with ints and floats. %s and %s was used", n, leftComputed.TypeName(), rightComputed.TypeName()),
-				pos:    n.pos(),
-			}
+			c.errors = append(c.errors, typecheckError{
+				reason: fmt.Sprintf("%s operator only works with ints and floats. %s and %s was used",
+					n.tok, color.Str(color.Yellow, leftComputed.TypeName()), color.Str(color.Yellow, rightComputed.TypeName())),
+				pos: n.pos(),
+			})
 		}
 		return n, nil
 	case plusOther:
 		if !isIterator(leftComputed) || !isIterator(rightComputed) {
-			return nil, &typecheckError{
-				reason: fmt.Sprintf("++ operator only works with iterators (list and string). %s and %s was used", leftComputed.TypeName(), rightComputed.TypeName()),
-				pos:    n.pos(),
-			}
+			c.errors = append(c.errors, typecheckError{
+				reason: fmt.Sprintf("++ operator only works with iterators (list and string). %s and %s was used",
+					color.Str(color.Yellow, leftComputed.TypeName()), color.Str(color.Yellow, rightComputed.TypeName())),
+				pos: n.pos(),
+			})
 		}
 		return n, nil
 	default:
@@ -154,6 +175,9 @@ func (c *TypecheckContext) typecheckBinaryNode(n binaryNode, sc typecheckScope) 
 	}
 }
 
+// typecheckExpr is the only function that does not 'insert' typecheckError into TypecheckContext.
+// This means that we can insert typeccheckError at the boundaries like `typecheckNodes` which is at the "beginnig" for parsing
+// a root node, and like typecheckBinaryNode which is at "the end".
 func (c *TypecheckContext) typecheckExpr(node astNode, sc typecheckScope) (astNode, *typecheckError) {
 	switch n := node.(type) {
 	case binaryNode:
@@ -208,14 +232,18 @@ func (c *TypecheckContext) typecheckExpr(node astNode, sc typecheckScope) (astNo
 	}
 }
 
-func (c *TypecheckContext) typecheckNodes(nodes []astNode) (astNode, *typecheckError) {
+func (c *TypecheckContext) typecheckNodes(nodes []astNode) (astNode, error) {
 	var returnValue astNode = nil
-	var err *typecheckError
 	for _, expr := range nodes {
-		returnValue, err = c.typecheckExpr(expr, c.typecheckScope)
+		v, err := c.typecheckExpr(expr, c.typecheckScope)
 		if err != nil {
-			return nil, err
+			c.errors = append(c.errors, *err)
+		} else {
+			returnValue = v
 		}
+	}
+	if len(c.errors) > 0 {
+		return nil, c.multipleErrors
 	}
 	return returnValue, nil
 }

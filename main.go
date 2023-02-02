@@ -3,8 +3,26 @@ package main
 import (
 	"flag"
 	"fmt"
+	color "github.com/dghaehre/termcolor"
 	"os"
 )
+
+func usage() string {
+	header := fmt.Sprintf("%s, the programming language\n\n", color.Str(color.Blue, "Raja"))
+	usage := fmt.Sprintf(`%s:
+    raja [OPTIONS] [FILE]
+
+If no FILE is given, a repl is opened.
+
+%s:
+    --check       Check given file for type errors and similar.
+                  It will not run the file.
+
+    -h, --help    Show this message
+    `, color.Str(color.Yellow, "USAGE"), color.Str(color.Yellow, "OPTIONS"))
+
+	return header + usage
+}
 
 func runFile(filePath string) {
 	file, err := os.Open(filePath)
@@ -35,11 +53,14 @@ func checkFile(filePath string) {
 		fmt.Println(err)
 		return
 	}
-	colorPrintln(ColorGreen, "No type errors found!")
+	color.Println(color.Green, "No type errors found!")
 }
 
 func main() {
-	check := flag.Bool("check", false, "only typecheck")
+	check := flag.Bool("check", false, "Typecheck")
+	flag.Usage = func() {
+		fmt.Println(usage())
+	}
 	flag.Parse()
 	args := flag.Args()
 	if len(args) == 0 {
