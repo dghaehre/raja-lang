@@ -5,6 +5,7 @@ import (
 	"io"
 	"reflect"
 	"strconv"
+	"strings"
 
 	color "github.com/dghaehre/termcolor"
 )
@@ -54,8 +55,8 @@ func (me multipleErrors) Error() string {
 		s += v.Error()
 	}
 
-	if len(me.errors) > 0 {
-    s += "\n\n" + color.Str(color.Red, "Errors: ")
+	if len(me.errors) > 1 {
+		s += "\n\n" + color.Str(color.Red, "Errors: ")
 		s += strconv.Itoa(len(me.errors))
 	}
 	return s
@@ -68,22 +69,48 @@ type typecheckScope struct {
 	vars map[string]typedAstNode
 }
 
-func (sc *typecheckScope) put(name string, v typedAstNode, pos pos) error {
-	sc.vars[name] = v
+// TODO:
+// - changing a mutable variable
+func (sc *typecheckScope) put(name string, typed typedAstNode, pos pos) error {
+	switch n := typed.(type) {
+	case typedFnNode:
+		scvalue, ok := sc.vars[name]
+		if !ok {
+			sc.vars[name] = typedFnNodes{
+				values: []typedFnNode{n},
+			}
+			return nil
+		}
+		switch scvalue := scvalue.(type) {
+		case typedFnNodes:
+			scvalue.values = append(scvalue.values, n)
+			sc.vars[name] = scvalue
+			return nil
+		default:
+			return &typecheckError{
+				reason: fmt.Sprintf("Expected fn value (TODO)"),
+				pos:    pos,
+			}
+		}
+	default:
+		// TODO: mutable?
+		sc.vars[name] = typed
+	}
 	return nil
 }
 
-func (sc *typecheckScope) get(name string) (typedAstNode, error) {
+func (sc *typecheckScope) get(name string, pos pos) (typedAstNode, error) {
 	if v, ok := sc.vars[name]; ok {
 		return v, nil
 	}
 	if sc.parent != nil {
-		return sc.parent.get(name)
+		return sc.parent.get(name, pos)
 	}
 
 	// TODO: what if the variable is defined later?
 	return nil, &typecheckError{
 		reason: fmt.Sprintf("%s is not defined", name),
+		pos:    pos,
 	}
 }
 
@@ -169,6 +196,23 @@ func (n typedFnNode) String() string {
 
 func (n typedFnNode) pos() pos {
 	return n.tok.pos
+}
+
+type typedFnNodes struct {
+	values []typedFnNode
+}
+
+func (v typedFnNodes) String() string {
+	stringValues := make([]string, len(v.values))
+	for i, s := range v.values {
+		stringValues[i] = s.String()
+	}
+	return strings.Join(stringValues, ", ")
+}
+
+// NOTE: Should never be used
+func (v typedFnNodes) pos() pos {
+	return pos{}
 }
 
 func isType(a typedAstNode, b typedAstNode) bool {
@@ -260,11 +304,13 @@ func (c *TypecheckContext) typecheckFnCallNode(callNode fnCallNode, sc typecheck
 		return nil, err
 	}
 
-	// TODO: multiple dispatch!!
+	switch nodes := fn.(type) {
+	case typedFnNodes:
+		// TODO:
+		// - find the matching functions with the same amount of args
+		// - find the matching function(s) with correct types
+		//   - maybe a warning if there are multiple functions that matches?
 
-	// args := n.args
-	switch f := fn.(type) {
-	case typedFnNode:
 		argsProvided := make([]typedAstNode, 0)
 		for _, v := range callNode.args {
 			arg, err := c.typecheckExpr(v, sc)
@@ -274,19 +320,44 @@ func (c *TypecheckContext) typecheckFnCallNode(callNode fnCallNode, sc typecheck
 			argsProvided = append(argsProvided, arg)
 		}
 
-		// argsExpected := TODO
+		matchingArgsLength := make([]typedFnNode, 0)
+		for _, n := range nodes.values {
+			if len(n.args) == len(argsProvided) {
+				matchingArgsLength = append(matchingArgsLength, n)
+			}
+		}
 
-		if !matchingArgs(argsProvided, toTypedArgs(f.args)) {
+		if len(matchingArgsLength) == 0 {
 			c.errors = append(c.errors, &paramMismatchError{
 				callNode:     callNode,
 				argsProvided: argsProvided,
-				args:         f.args,
-				fns:          []typedFnNode{f},
-				pos:          callNode.pos(),
+				// args:         callNode.args,
+				// fns: []typedFnNode{f},
+				pos: callNode.pos(),
 			})
-			return callNode, nil
 		}
-		// fmt.Println(fn)
+
+		fullMatch := make([]typedFnNode, 0)
+		for _, n := range matchingArgsLength {
+			// TODO
+			fullMatch = append(fullMatch, n)
+		}
+
+		if len(fullMatch) == 0 {
+			c.errors = append(c.errors, &paramMismatchError{
+				callNode:     callNode,
+				argsProvided: argsProvided,
+				// args:         callNode.args,
+				// fns: []typedFnNode{f},
+				pos: callNode.pos(),
+			})
+		}
+
+		if len(fullMatch) > 1 {
+			// TODO: maybe create a warning here that we are matching more than one?
+		}
+
+		return fullMatch[0], nil
 	default:
 		c.errors = append(c.errors, &typecheckError{
 			reason: fmt.Sprintf("%s is not a function.", fn),
@@ -294,10 +365,7 @@ func (c *TypecheckContext) typecheckFnCallNode(callNode fnCallNode, sc typecheck
 		})
 	}
 
-	// What to do here?
-	// try to find a function in scope that has the right amount of parameters.
 	return callNode, nil
-
 }
 
 func (c *TypecheckContext) typecheckBinaryNode(n binaryNode, sc typecheckScope) (typedAstNode, error) {
@@ -374,7 +442,7 @@ func (c *TypecheckContext) typecheckExpr(node astNode, sc typecheckScope) (typed
 	case binaryNode:
 		return c.typecheckBinaryNode(n, sc)
 	case identifierNode:
-		return sc.get(n.payload)
+		return sc.get(n.payload, n.pos())
 	case assignmentNode:
 		assignedNode, err := c.typecheckExpr(n.right, sc)
 		if err != nil {

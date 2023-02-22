@@ -10,7 +10,7 @@ import (
 func expectProgramToReturn(t *testing.T, program string, expected Value) {
 	ctx := NewContext()
 	ctx.LoadBuiltins()
-	val, err := ctx.Eval(strings.NewReader(program))
+	val, err := ctx.Eval(strings.NewReader(program), "test")
 	if err != nil {
 		t.Errorf("Did not expect program to exit with error: %s", err.Error())
 	}
