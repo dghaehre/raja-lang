@@ -1,1 +1,1 @@
-{"version":1,"ops":[{"type":1,"author":{"id":"6ff87a9450499f1ec598b9268159f9b46bcf356e"},"timestamp":1677364748,"title":"Add alias to typecheck","message":"","files":null}]}
+{"version":1,"ops":[{"type":5,"author":{"id":"6ff87a9450499f1ec598b9268159f9b46bcf356e"},"timestamp":1677364761,"added":["refactor","typecheck"],"removed":null}]}
