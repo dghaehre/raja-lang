@@ -132,7 +132,7 @@ func (c *Context) rajaString(args []Value) (Value, *runtimeError) {
 }
 
 func (c *Context) rajaInt(args []Value) (Value, *runtimeError) {
-	if err := c.requireArgLen("__string", args, 1); err != nil {
+	if err := c.requireArgLen("__int", args, 1); err != nil {
 		return nil, err
 	}
 	switch arg := args[0].(type) {
@@ -164,7 +164,7 @@ func (c *Context) rajaPrint(args []Value) (Value, *runtimeError) {
 }
 
 func (c *Context) rajaReadFile(args []Value) (Value, *runtimeError) {
-	if err := c.requireArgLen("__print", args, 1); err != nil {
+	if err := c.requireArgLen("__read_file", args, 1); err != nil {
 		return nil, err
 	}
 
@@ -194,7 +194,7 @@ func (c *Context) rajaArgs(_ []Value) (Value, *runtimeError) {
 }
 
 func (c *Context) rajaExit(args []Value) (Value, *runtimeError) {
-	if err := c.requireArgLen("exit", args, 1); err != nil {
+	if err := c.requireArgLen("__exit", args, 1); err != nil {
 		return nil, err
 	}
 
@@ -213,6 +213,8 @@ func (c *Context) rajaExit(args []Value) (Value, *runtimeError) {
 // Supports:
 // - List
 // - Str
+//
+// which is: Iterator
 //
 // Returns a Maybe if third argument is false
 func (c *Context) rajaIndex(args []Value) (Value, *runtimeError) {
@@ -275,9 +277,6 @@ func (c *Context) rajaIndex(args []Value) (Value, *runtimeError) {
 			return nil, &runtimeError{
 				reason: fmt.Sprintf("Unexpected argument to __index: %s. Expected an int as index.", args[1]),
 			}
-		}
-		return nil, &runtimeError{
-			reason: fmt.Sprintf("TODO"),
 		}
 	default:
 		return nil, &runtimeError{

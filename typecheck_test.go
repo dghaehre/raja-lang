@@ -9,6 +9,7 @@ import (
 
 func expectTypecheckToReturn(t *testing.T, program string, expected typedAstNode) {
 	ctx := NewTypecheckContext()
+	ctx.LoadBuiltins()
 	val, err := ctx.Typecheck(strings.NewReader(program), "test")
 	if err != nil {
 		t.Errorf("Did not expect program to typecheck with error: \n%s", err.Error())
@@ -58,6 +59,15 @@ a = 1
 b = 2.1
 a + b`
 	expectTypecheckToReturn(t, p, typedFloatNode{nil})
+}
+
+func TestSimpleGenericFunctionTypecheck(t *testing.T) {
+	p := `
+do_something = (a) => __string(a)
+do_something("hey")`
+	expectTypecheckToReturn(t, p, typedFnNode{
+		args: []typedAstNode{untypedArg{name: "a"}},
+	})
 }
 
 func TestSimpleFunctionTypecheck(t *testing.T) {

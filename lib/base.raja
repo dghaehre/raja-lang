@@ -7,7 +7,7 @@
 
 string = (a) => __string(a)
 int = (a:Str) => __int(a)
-float = (a:Str) => __float(a)
+# float = (a:Str) => __float(a)
 print = (a) => __print(a)
 read_file = (a:Str) => __read_file(a)
 get_args = () => __args()

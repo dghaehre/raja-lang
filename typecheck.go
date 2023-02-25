@@ -591,12 +591,19 @@ func (c *TypecheckContext) typecheckExpr(node astNode, sc typecheckScope) (typed
 		}
 		args := toMaybeTypedArgs(n.args)
 		for _, a := range args {
-			arg, ok := a.(typedArg)
-			if ok { // NOTE: Should always be a typed arg
+			switch arg := a.(type) {
+			case typedArg:
 				err := fnScope.put(arg.name, arg.alias, n.pos())
 				if err != nil {
 					return nil, err
 				}
+			case untypedArg:
+				err := fnScope.put(arg.name, typedAnyNode{}, n.pos())
+				if err != nil {
+					return nil, err
+				}
+			default:
+				panic("unreachable")
 			}
 		}
 

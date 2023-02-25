@@ -47,7 +47,7 @@ func checkFile(filePath string) {
 	}
 	defer file.Close()
 	c := NewTypecheckContext()
-	// c.LoadBuiltins()
+	c.LoadBuiltins()
 	_, err = c.Typecheck(file, filePath)
 	if err != nil {
 		fmt.Println(err)
