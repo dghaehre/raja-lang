@@ -2,6 +2,8 @@ package main
 
 import (
 	"bytes"
+	"dghaehre/raja/ast"
+	"dghaehre/raja/util"
 	"fmt"
 	color "github.com/dghaehre/termcolor"
 	"io"
@@ -13,19 +15,19 @@ import (
 
 type stackEntry struct {
 	name string
-	pos
+	ast.Pos
 }
 
 func (e stackEntry) String() string {
 	if e.name != "" {
-		return fmt.Sprintf("  in function %s %s", e.name, e.pos)
+		return fmt.Sprintf("  in function %s %s", e.name, e.Pos)
 	}
-	return fmt.Sprintf("  in anonymous function %s", e.pos)
+	return fmt.Sprintf("  in anonymous function %s", e.Pos)
 }
 
 type runtimeError struct {
 	reason string
-	pos
+	ast.Pos
 	stackTrace []stackEntry
 }
 
@@ -35,7 +37,7 @@ func (e *runtimeError) Error() string {
 		trace[i] = entry.String()
 	}
 	header := color.Str(color.Red, "Runtime error")
-	return fmt.Sprintf("%s at %s:\n\n%s\n%s", header, e.pos, e.reason, strings.Join(trace, "\n"))
+	return fmt.Sprintf("%s at %s:\n\n%s\n%s", header, e.Pos, e.reason, strings.Join(trace, "\n"))
 }
 
 type scope struct {
@@ -266,16 +268,20 @@ type MostSpecific []FnValue
 
 func (fv MostSpecific) Len() int { return len(fv) }
 
+func HasAlias(a ast.Arg) bool {
+	return a.Alias != ""
+}
+
 // Currently only sorting by which function that has the most 'aliases'
 func (fv MostSpecific) Less(i, j int) bool {
-	x := len(Filter(fv[i].fn.args, HasAlias))
-	y := len(Filter(fv[j].fn.args, HasAlias))
+	x := len(util.Filter(fv[i].fn.Args, HasAlias))
+	y := len(util.Filter(fv[j].fn.Args, HasAlias))
 	return x > y
 }
 func (fv MostSpecific) Swap(i, j int) { fv[i], fv[j] = fv[j], fv[i] }
 
 type FnValue struct {
-	fn *fnNode
+	fn *ast.FnNode
 	scope
 }
 
@@ -308,7 +314,7 @@ func (v UnderscoreValue) Eq(u Value) bool {
 // Scope
 
 // Put variable into scope
-func (sc *scope) put(name string, v Value, pos pos) *runtimeError {
+func (sc *scope) put(name string, v Value, pos ast.Pos) *runtimeError {
 	switch value := v.(type) {
 	case FnValue:
 		scvalue, ok := sc.vars[name]
@@ -326,7 +332,7 @@ func (sc *scope) put(name string, v Value, pos pos) *runtimeError {
 		default:
 			return &runtimeError{
 				reason: fmt.Sprintf("Should never happen. expected fnValue, got %s.", scvalue),
-				pos:    pos,
+				Pos:    pos,
 			}
 		}
 	default:
@@ -339,7 +345,7 @@ func (sc *scope) put(name string, v Value, pos pos) *runtimeError {
 		if exist {
 			return &runtimeError{
 				reason: fmt.Sprintf("%s is not mutable.\nTry renaming the variable to mut_%s", name, name),
-				pos:    pos,
+				Pos:    pos,
 			}
 		}
 		sc.vars[name] = v
@@ -366,10 +372,10 @@ func (c *Context) Eval(reader io.Reader, filename string) (Value, error) {
 	if err != nil {
 		return nil, err
 	}
-	tokenizer := newTokenizer(string(program), filename)
-	tokens := tokenizer.tokenize()
-	parser := newParser(tokens)
-	nodes, err := parser.parse()
+	tokenizer := ast.NewTokenizer(string(program), filename)
+	tokens := tokenizer.Tokenize()
+	parser := ast.NewParser(tokens)
+	nodes, err := parser.Parse()
 	if err != nil {
 		return nil, err
 	}
@@ -380,11 +386,11 @@ func (c *Context) Eval(reader io.Reader, filename string) (Value, error) {
 	return v, nil
 }
 
-func incompatibleError(op tokKind, left, right Value, position pos) *runtimeError {
+func incompatibleError(op ast.TokKind, left, right Value, position ast.Pos) *runtimeError {
 	return &runtimeError{
 		reason: fmt.Sprintf("Cannot %s incompatible values %s, %s",
-			token{kind: op}, left, right),
-		pos: position,
+			ast.Token{Kind: op}, left, right),
+		Pos: position,
 	}
 }
 
@@ -392,111 +398,111 @@ var divisionByZeroErr = runtimeError{
 	reason: fmt.Sprintf("Division by zero"),
 }
 
-func floatBinaryOp(op tokKind, left FloatValue, right FloatValue) (Value, *runtimeError) {
+func floatBinaryOp(op ast.TokKind, left FloatValue, right FloatValue) (Value, *runtimeError) {
 	switch op {
-	case minus:
+	case ast.Minus:
 		return FloatValue(left - right), nil
-	case plus:
+	case ast.Plus:
 		return FloatValue(left + right), nil
-	case divide:
+	case ast.Divide:
 		if right == 0 {
 			return nil, &divisionByZeroErr
 		}
 		return FloatValue(left / right), nil
-	case modulus:
+	case ast.Modulus:
 		if right == 0 {
 			return nil, &divisionByZeroErr
 		}
 		return FloatValue(math.Mod(float64(left), float64(right))), nil
-	case times:
+	case ast.Times:
 		return FloatValue(left * right), nil
-	case eq:
+	case ast.Eq:
 		return BoolValue(left == right), nil
-	case geq:
+	case ast.Geq:
 		return BoolValue(left >= right), nil
-	case greater:
+	case ast.Greater:
 		return BoolValue(left > right), nil
-	case less:
+	case ast.Less:
 		return BoolValue(left < right), nil
-	case leq:
+	case ast.Leq:
 		return BoolValue(left <= right), nil
-	case neq:
+	case ast.Neq:
 		return BoolValue(left != right), nil
 	default:
-		return nil, incompatibleError(op, left, right, pos{})
+		return nil, incompatibleError(op, left, right, ast.Pos{})
 	}
 }
 
-func intBinaryOp(op tokKind, left IntValue, right IntValue) (Value, *runtimeError) {
+func intBinaryOp(op ast.TokKind, left IntValue, right IntValue) (Value, *runtimeError) {
 	switch op {
-	case minus:
+	case ast.Minus:
 		return IntValue(left - right), nil
-	case plus:
+	case ast.Plus:
 		return IntValue(left + right), nil
-	case times:
+	case ast.Times:
 		return IntValue(left * right), nil
-	case divide:
+	case ast.Divide:
 		if right == 0 {
 			return nil, &divisionByZeroErr
 		}
 		return IntValue(left / right), nil
-	case modulus:
+	case ast.Modulus:
 		if right == 0 {
 			return nil, &divisionByZeroErr
 		}
 		return IntValue(left % right), nil
-	case greater:
+	case ast.Greater:
 		return BoolValue(left > right), nil
-	case less:
+	case ast.Less:
 		return BoolValue(left < right), nil
-	case geq:
+	case ast.Geq:
 		return BoolValue(left >= right), nil
-	case leq:
+	case ast.Leq:
 		return BoolValue(left <= right), nil
-	case eq:
+	case ast.Eq:
 		return BoolValue(left == right), nil
-	case neq:
+	case ast.Neq:
 		return BoolValue(left != right), nil
 	default:
-		return nil, incompatibleError(op, left, right, pos{})
+		return nil, incompatibleError(op, left, right, ast.Pos{})
 	}
 }
 
-func stringBinaryOp(op tokKind, left StringValue, right StringValue) (Value, *runtimeError) {
+func stringBinaryOp(op ast.TokKind, left StringValue, right StringValue) (Value, *runtimeError) {
 	switch op {
-	case plusOther:
+	case ast.PlusOther:
 		x := append(left, right...)
 		return StringValue(x), nil
-	case eq:
+	case ast.Eq:
 		return BoolValue(string(left) == string(right)), nil
-	case neq:
+	case ast.Neq:
 		return BoolValue(string(left) != string(right)), nil
 	default:
-		return nil, incompatibleError(op, left, right, pos{})
+		return nil, incompatibleError(op, left, right, ast.Pos{})
 	}
 }
 
-func listBinaryOp(op tokKind, left *ListValue, right *ListValue) (Value, *runtimeError) {
+func listBinaryOp(op ast.TokKind, left *ListValue, right *ListValue) (Value, *runtimeError) {
 	switch op {
-	case plusOther:
+	case ast.PlusOther:
 		x := append(*left, *right...)
 		newlist := ListValue(x)
 		return &newlist, nil
 	default:
-		return nil, incompatibleError(op, left, right, pos{})
+		return nil, incompatibleError(op, left, right, ast.Pos{})
 	}
 }
 
-func (c *Context) evalBinaryNode(n binaryNode, sc scope) (Value, *runtimeError) {
-	leftComputed, err := c.evalExpr(n.left, sc)
+func (c *Context) evalBinaryNode(n ast.BinaryNode, sc scope) (Value, *runtimeError) {
+	leftComputed, err := c.evalExpr(n.Left, sc)
 	if err != nil {
 		return nil, err
 	}
-	rightComputed, err := c.evalExpr(n.right, sc)
+	rightComputed, err := c.evalExpr(n.Right, sc)
 	if err != nil {
 		return nil, err
 	}
-	if n.op == eq {
+	if n.Op == ast.Eq {
 		return BoolValue(leftComputed.Eq(rightComputed)), nil
 	}
 	switch left := leftComputed.(type) {
@@ -510,12 +516,12 @@ func (c *Context) evalBinaryNode(n binaryNode, sc scope) (Value, *runtimeError) 
 				l := ListValue(elem)
 				right = &l
 			default:
-				return nil, incompatibleError(n.op, leftComputed, rightComputed, n.pos())
+				return nil, incompatibleError(n.Op, leftComputed, rightComputed, n.Pos())
 			}
 		}
-		val, err := listBinaryOp(n.op, left, right)
+		val, err := listBinaryOp(n.Op, left, right)
 		if err != nil {
-			err.pos = n.pos()
+			err.Pos = n.Pos()
 		}
 		return val, err
 
@@ -524,20 +530,20 @@ func (c *Context) evalBinaryNode(n binaryNode, sc scope) (Value, *runtimeError) 
 		if !ok {
 			rightFloat, ok := rightComputed.(IntValue)
 			if !ok {
-				return nil, incompatibleError(n.op, leftComputed, rightComputed, n.pos())
+				return nil, incompatibleError(n.Op, leftComputed, rightComputed, n.Pos())
 			}
 
 			right := FloatValue(float64(int64(rightFloat)))
-			val, err := floatBinaryOp(n.op, left, right)
+			val, err := floatBinaryOp(n.Op, left, right)
 			if err != nil {
-				err.pos = n.pos()
+				err.Pos = n.Pos()
 			}
 			return val, err
 		}
 
-		val, err := floatBinaryOp(n.op, left, right)
+		val, err := floatBinaryOp(n.Op, left, right)
 		if err != nil {
-			err.pos = n.pos()
+			err.Pos = n.Pos()
 		}
 		return val, err
 	case IntValue:
@@ -545,57 +551,57 @@ func (c *Context) evalBinaryNode(n binaryNode, sc scope) (Value, *runtimeError) 
 		if !ok {
 			rightFloat, ok := rightComputed.(FloatValue)
 			if !ok {
-				return nil, incompatibleError(n.op, leftComputed, rightComputed, n.pos())
+				return nil, incompatibleError(n.Op, leftComputed, rightComputed, n.Pos())
 			}
 
 			leftFloat := FloatValue(float64(int64(left)))
-			val, err := floatBinaryOp(n.op, leftFloat, rightFloat)
+			val, err := floatBinaryOp(n.Op, leftFloat, rightFloat)
 			if err != nil {
-				err.pos = n.pos()
+				err.Pos = n.Pos()
 			}
 			return val, err
 		}
 
-		val, err := intBinaryOp(n.op, left, right)
+		val, err := intBinaryOp(n.Op, left, right)
 		if err != nil {
-			err.pos = n.pos()
+			err.Pos = n.Pos()
 		}
 		return val, err
 	case StringValue:
 		right, ok := rightComputed.(StringValue)
 		if !ok {
-			return nil, incompatibleError(n.op, leftComputed, rightComputed, n.pos())
+			return nil, incompatibleError(n.Op, leftComputed, rightComputed, n.Pos())
 		}
-		val, err := stringBinaryOp(n.op, left, right)
+		val, err := stringBinaryOp(n.Op, left, right)
 		if err != nil {
-			err.pos = n.pos()
+			err.Pos = n.Pos()
 		}
 		return val, err
 	default:
 		return nil, &runtimeError{
 			reason: fmt.Sprintf("Binary operator %s is not defined for values %s, %s",
-				token{kind: n.op}, leftComputed, rightComputed),
-			pos: n.pos(),
+				ast.Token{Kind: n.Op}, leftComputed, rightComputed),
+			Pos: n.Pos(),
 		}
 	}
 }
 
-func (c *Context) getCorrectFnValue(n fnCallNode, fnv FnValues, args []Value) (FnValue, *runtimeError) {
+func (c *Context) getCorrectFnValue(n ast.FnCallNode, fnv FnValues, args []Value) (FnValue, *runtimeError) {
 
 	// Filter out functions that does not 'pass' as possible alternatives
 	var filterError *runtimeError
-	relevant := Filter(fnv.values, func(f FnValue) bool {
-		if len(f.fn.args) != len(args) {
+	relevant := util.Filter(fnv.values, func(f FnValue) bool {
+		if len(f.fn.Args) != len(args) {
 			return false
 		}
 		if len(args) == 0 {
 			return true
 		}
 		for i := 0; i < len(args); i++ {
-			if f.fn.args[i].alias == "" {
+			if f.fn.Args[i].Alias == "" {
 				continue
 			}
-			v, err := c.scope.get(f.fn.args[i].alias)
+			v, err := c.scope.get(f.fn.Args[i].Alias)
 			if err != nil {
 				filterError = err
 				return false
@@ -612,8 +618,8 @@ func (c *Context) getCorrectFnValue(n fnCallNode, fnv FnValues, args []Value) (F
 
 	if len(relevant) == 0 {
 		return FnValue{}, &runtimeError{
-			reason: fmt.Sprintf("Cannot call function %s with the supplied args.\nThere are %d function(s) named %s in scope, but none matched the parameters used.", n.fn, len(fnv.values), n.fn),
-			pos:    n.pos(),
+			reason: fmt.Sprintf("Cannot call function %s with the supplied args.\nThere are %d function(s) named %s in scope, but none matched the parameters used.", n.Fn, len(fnv.values), n.Fn),
+			Pos:    n.Pos(),
 		}
 	}
 
@@ -621,8 +627,8 @@ func (c *Context) getCorrectFnValue(n fnCallNode, fnv FnValues, args []Value) (F
 	return relevant[0], nil
 }
 
-func (c *Context) evalFnCallNode(n fnCallNode, sc scope, args []Value) (Value, *runtimeError) {
-	leftComputed, err := c.evalExpr(n.fn, sc)
+func (c *Context) evalFnCallNode(n ast.FnCallNode, sc scope, args []Value) (Value, *runtimeError) {
+	leftComputed, err := c.evalExpr(n.Fn, sc)
 	if err != nil {
 		return nil, err
 	}
@@ -638,15 +644,15 @@ func (c *Context) evalFnCallNode(n fnCallNode, sc scope, args []Value) (Value, *
 			parent: &v.scope,
 			vars:   map[string]Value{},
 		}
-		for i, a := range v.fn.args {
-			if a.name != "" {
-				err := fnScope.put(a.name, args[i], n.pos())
+		for i, a := range v.fn.Args {
+			if a.Name != "" {
+				err := fnScope.put(a.Name, args[i], n.Pos())
 				if err != nil {
 					return nil, err
 				}
 			}
 		}
-		return c.evalExpr(v.fn.body, fnScope)
+		return c.evalExpr(v.fn.Body, fnScope)
 	case FnValue:
 		// Not sure if this will ever happen?
 		// Stays here just in case for now..
@@ -656,40 +662,40 @@ func (c *Context) evalFnCallNode(n fnCallNode, sc scope, args []Value) (Value, *
 			parent: &left.scope,
 			vars:   map[string]Value{},
 		}
-		for i, a := range left.fn.args {
-			if a.name != "" {
-				err := fnScope.put(a.name, args[i], n.pos())
+		for i, a := range left.fn.Args {
+			if a.Name != "" {
+				err := fnScope.put(a.Name, args[i], n.Pos())
 				if err != nil {
 					return nil, err
 				}
 			}
 		}
-		return c.evalExpr(left.fn.body, fnScope)
+		return c.evalExpr(left.fn.Body, fnScope)
 	default:
 		return nil, &runtimeError{
 			reason: fmt.Sprintf("Cannot call function from %s.", leftComputed),
-			pos:    n.pos(),
+			Pos:    n.Pos(),
 		}
 	}
 }
 
-func (c *Context) evalMatchNode(n matchNode, sc scope) (Value, *runtimeError) {
-	cond, err := c.evalExpr(n.cond, sc)
+func (c *Context) evalMatchNode(n ast.MatchNode, sc scope) (Value, *runtimeError) {
+	cond, err := c.evalExpr(n.Cond, sc)
 	if err != nil {
 		return nil, err
 	}
-	for _, v := range n.branches {
-		t, bodyScope, err := c.evalMatchBranchExpr(v.target, sc, cond)
+	for _, v := range n.Branches {
+		t, bodyScope, err := c.evalMatchBranchExpr(v.Target, sc, cond)
 		if err != nil {
 			return nil, err
 		}
 		if cond.Eq(t) {
-			return c.evalExpr(v.body, bodyScope)
+			return c.evalExpr(v.Body, bodyScope)
 		}
 	}
 	return nil, &runtimeError{
 		reason: fmt.Sprintf("No patterns matched in match expression: %s", n.String()),
-		pos:    n.pos(),
+		Pos:    n.Pos(),
 	}
 }
 
@@ -724,7 +730,7 @@ func getIndexValuesFromValue(value Value, max int) []Value {
 // If it finds one, it will:
 // - substitue the identifierNode with an underscoreNode
 // - put that identifierNode/identifierValue into scope to be used in the body of that branch
-func (c *Context) evalMatchBranchExpr(node astNode, sc scope, cond Value) (Value, scope, *runtimeError) {
+func (c *Context) evalMatchBranchExpr(node ast.AstNode, sc scope, cond Value) (Value, scope, *runtimeError) {
 	// Creating a new scope for the body of the target branch.
 	bodyScope := scope{
 		parent: &sc,
@@ -732,21 +738,21 @@ func (c *Context) evalMatchBranchExpr(node astNode, sc scope, cond Value) (Value
 	}
 
 	switch n := node.(type) {
-	case identifierNode:
-		bodyScope.put(n.payload, cond, n.pos())
+	case ast.IdentifierNode:
+		bodyScope.put(n.Payload, cond, n.Pos())
 		return underscorevalue, bodyScope, nil
-	case enumNode:
-		condArgs := getIndexValuesFromValue(cond, len(n.args))
+	case ast.EnumNode:
+		condArgs := getIndexValuesFromValue(cond, len(n.Args))
 		var err *runtimeError
-		elems := make([]Value, len(n.args))
-		for i, elNode := range n.args {
+		elems := make([]Value, len(n.Args))
+		for i, elNode := range n.Args {
 			if i >= len(condArgs) {
 				// This is to prevent us from causing a panic with condArgs[i]
 				break
 			}
 			switch en := elNode.(type) {
-			case identifierNode:
-				bodyScope.put(en.payload, condArgs[i], n.pos())
+			case ast.IdentifierNode:
+				bodyScope.put(en.Payload, condArgs[i], n.Pos())
 				elems[i] = underscorevalue
 			default:
 				elems[i], err = c.evalExpr(elNode, sc)
@@ -756,21 +762,21 @@ func (c *Context) evalMatchBranchExpr(node astNode, sc scope, cond Value) (Value
 			}
 		}
 		return EnumValue{
-			name:   n.name,
-			parent: n.parent,
+			name:   n.Name,
+			parent: n.Parent,
 			args:   elems,
 		}, bodyScope, nil
-	case listNode:
-		condArgs := getIndexValuesFromValue(cond, len(n.elems))
-		listValue := make(ListValue, len(n.elems))
-		for i, elNode := range n.elems {
+	case ast.ListNode:
+		condArgs := getIndexValuesFromValue(cond, len(n.Elems))
+		listValue := make(ListValue, len(n.Elems))
+		for i, elNode := range n.Elems {
 			if i >= len(condArgs) {
 				// This is to prevent us from causing a panic with condArgs[i]
 				break
 			}
 			switch en := elNode.(type) {
-			case identifierNode:
-				bodyScope.put(en.payload, condArgs[i], n.pos())
+			case ast.IdentifierNode:
+				bodyScope.put(en.Payload, condArgs[i], n.Pos())
 				listValue[i] = underscorevalue
 			default:
 				v, err := c.evalExpr(elNode, sc)
@@ -787,46 +793,46 @@ func (c *Context) evalMatchBranchExpr(node astNode, sc scope, cond Value) (Value
 	}
 }
 
-func (c *Context) evalExpr(node astNode, sc scope) (Value, *runtimeError) {
+func (c *Context) evalExpr(node ast.AstNode, sc scope) (Value, *runtimeError) {
 	switch n := node.(type) {
-	case intNode:
-		return IntValue(n.payload), nil
-	case floatNode:
-		return FloatValue(n.payload), nil
-	case stringNode:
-		return StringValue(n.payload), nil
-	case underscoreNode:
+	case ast.IntNode:
+		return IntValue(n.Payload), nil
+	case ast.FloatNode:
+		return FloatValue(n.Payload), nil
+	case ast.StringNode:
+		return StringValue(n.Payload), nil
+	case ast.UnderscoreNode:
 		return underscorevalue, nil
-	case binaryNode:
+	case ast.BinaryNode:
 		return c.evalBinaryNode(n, sc)
-	case boolNode:
-		return BoolValue(n.payload), nil
-	case matchNode:
+	case ast.BoolNode:
+		return BoolValue(n.Payload), nil
+	case ast.MatchNode:
 		return c.evalMatchNode(n, sc)
-	case identifierNode:
-		val, err := sc.get(n.payload)
+	case ast.IdentifierNode:
+		val, err := sc.get(n.Payload)
 		if err != nil {
-			err.pos = n.pos()
+			err.Pos = n.Pos()
 		}
 		return val, err
-	case assignmentNode:
-		assignedValue, err := c.evalExpr(n.right, sc)
+	case ast.AssignmentNode:
+		assignedValue, err := c.evalExpr(n.Right, sc)
 		if err != nil {
 			return nil, err
 		}
-		switch left := n.left.(type) {
-		case identifierNode:
-			err := sc.put(left.payload, assignedValue, n.pos())
+		switch left := n.Left.(type) {
+		case ast.IdentifierNode:
+			err := sc.put(left.Payload, assignedValue, n.Pos())
 			return assignedValue, err
 		default:
 			return nil, &runtimeError{
 				reason: fmt.Sprintf("Invalid assignment target %s", left.String()),
-				pos:    n.pos(),
+				Pos:    n.Pos(),
 			}
 		}
-	case fnCallNode:
-		args := make([]Value, 0, len(n.args))
-		for _, a := range n.args {
+	case ast.FnCallNode:
+		args := make([]Value, 0, len(n.Args))
+		for _, a := range n.Args {
 			v, err := c.evalExpr(a, sc)
 			if err != nil {
 				return nil, err
@@ -834,23 +840,23 @@ func (c *Context) evalExpr(node astNode, sc scope) (Value, *runtimeError) {
 			args = append(args, v)
 		}
 		return c.evalFnCallNode(n, sc, args)
-	case blockNode:
+	case ast.BlockNode:
 		blockScope := scope{
 			parent: &sc,
 			vars:   map[string]Value{},
 		}
-		last := len(n.exprs) - 1
-		for _, expr := range n.exprs[:last] {
+		last := len(n.Exprs) - 1
+		for _, expr := range n.Exprs[:last] {
 			_, err := c.evalExpr(expr, blockScope)
 			if err != nil {
 				return nil, err
 			}
 		}
-		return c.evalExpr(n.exprs[last], blockScope)
-	case listNode:
+		return c.evalExpr(n.Exprs[last], blockScope)
+	case ast.ListNode:
 		var err *runtimeError
-		elems := make([]Value, len(n.elems))
-		for i, elNode := range n.elems {
+		elems := make([]Value, len(n.Elems))
+		for i, elNode := range n.Elems {
 			elems[i], err = c.evalExpr(elNode, sc)
 			if err != nil {
 				return nil, err
@@ -858,25 +864,25 @@ func (c *Context) evalExpr(node astNode, sc scope) (Value, *runtimeError) {
 		}
 		list := ListValue(elems)
 		return &list, nil
-	case enumNode:
+	case ast.EnumNode:
 		var err *runtimeError
-		elems := make([]Value, len(n.args))
-		for i, elNode := range n.args {
+		elems := make([]Value, len(n.Args))
+		for i, elNode := range n.Args {
 			elems[i], err = c.evalExpr(elNode, sc)
 			if err != nil {
 				return nil, err
 			}
 		}
 		return EnumValue{
-			name:   n.name,
-			parent: n.parent,
+			name:   n.Name,
+			parent: n.Parent,
 			args:   elems,
 		}, nil
 
-	case aliasNode:
+	case ast.AliasNode:
 		var err *runtimeError
-		elems := make([]Value, len(n.targets))
-		for i, elNode := range n.targets {
+		elems := make([]Value, len(n.Targets))
+		for i, elNode := range n.Targets {
 			elems[i], err = c.evalExpr(elNode, sc)
 			if err != nil {
 				return nil, err
@@ -886,9 +892,9 @@ func (c *Context) evalExpr(node astNode, sc scope) (Value, *runtimeError) {
 			targets: elems,
 			scope:   sc,
 		}
-		err = sc.put(n.name, alias, n.pos())
+		err = sc.put(n.Name, alias, n.Pos())
 		return alias, err
-	case fnNode:
+	case ast.FnNode:
 		return FnValue{
 			fn:    &n,
 			scope: sc,
@@ -897,7 +903,7 @@ func (c *Context) evalExpr(node astNode, sc scope) (Value, *runtimeError) {
 	panic(fmt.Sprintf("Unexpected astNode type: %s", node))
 }
 
-func (c *Context) evalNodes(nodes []astNode) (Value, *runtimeError) {
+func (c *Context) evalNodes(nodes []ast.AstNode) (Value, *runtimeError) {
 	var returnValue Value = nil
 	var err *runtimeError
 	for _, expr := range nodes {

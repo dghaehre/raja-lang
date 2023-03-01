@@ -1,4 +1,4 @@
-package main
+package ast
 
 import (
 	"fmt"
@@ -16,168 +16,158 @@ type tokenizer struct {
 	col      int
 }
 
-type pos struct {
+type Pos struct {
 	fileName string
 	line     int
 	col      int
 }
 
-func (p pos) String() string {
+func (p Pos) String() string {
 	return fmt.Sprintf("%s[%d:%d]", p.fileName, p.line, p.col)
 }
 
-type tokKind int
+type TokKind int
 
 const (
-	comment tokKind = iota
-	unknown
+	Comment TokKind = iota
+	Unknown
 
-	emptyToken // Used as: nothing here
-	comma
-	dot
-	leftParen
-	rightParen
-	leftBracket
-	rightBracket
-	leftBrace
-	rightBrace
-	assign
-	fnArrow
-	branchArrow
-	colon
-	doubleColon
-
-	// indent stuff
-	// TODO: remove indent
-	indentOpen
-	indentClose
-	indentEndStatment
+	EmptyToken // Used as: nothing here
+	Comma
+	Dot
+	LeftParen
+	RightParen
+	LeftBracket
+	RightBracket
+	LeftBrace
+	RightBrace
+	Assign
+	FnArrow
+	BranchArrow
+	Colon
+	DoubleColon
 
 	// binary operators
-	plus
-	plusOther
-	minus
-	modulus
-	times
-	divide
-	and
-	or
-	greater
-	less
-	eq
-	neq
-	geq
-	leq
+	Plus
+	PlusOther
+	Minus
+	Modulus
+	Times
+	Divide
+	And
+	Or
+	Greater
+	Less
+	Eq
+	Neq
+	Geq
+	Leq
+
+	IndentEndStatment
 
 	// keywords
-	matchKeyword
-	aliasKeyword
-	singlePipeArrow
-	doublePipeArrow
+	MatchKeyword
+	AliasKeyword
+	SinglePipeArrow
+	DoublePipeArrow
 
 	// identifiers and literals
-	underscore
-	identifier
-	trueLiteral
-	falseLiteral
-	stringLiteral
-	numberLiteral
+	Underscore
+	Identifier
+	TrueLiteral
+	FalseLiteral
+	StringLiteral
+	NumberLiteral
 )
 
-type token struct {
-	kind tokKind
-	pos
-	payload string
+type Token struct {
+	Kind TokKind
+	Pos
+	Payload string
 }
 
-func (t token) String() string {
-	switch t.kind {
-	case comment:
-		return fmt.Sprintf("#(%s)", t.payload)
-	case comma:
+func (t Token) String() string {
+	switch t.Kind {
+	case Comment:
+		return fmt.Sprintf("#(%s)", t.Payload)
+	case Comma:
 		return ","
-	case dot:
+	case Dot:
 		return "."
-	case leftParen:
+	case LeftParen:
 		return "("
-	case rightParen:
+	case RightParen:
 		return ")"
-	case leftBracket:
+	case LeftBracket:
 		return "["
-	case rightBracket:
+	case RightBracket:
 		return "]"
-	case leftBrace:
+	case LeftBrace:
 		return "{"
-	case rightBrace:
+	case RightBrace:
 		return "}"
-	case assign:
+	case Assign:
 		return "="
-	case fnArrow:
+	case FnArrow:
 		return "=>"
-	case branchArrow:
+	case BranchArrow:
 		return "->"
-	case colon:
+	case Colon:
 		return ":"
-	case doubleColon:
+	case DoubleColon:
 		return "::"
-	case plus:
+	case Plus:
 		return "+"
-	case modulus:
+	case Modulus:
 		return "%"
-	case plusOther:
+	case PlusOther:
 		return "++"
-	case minus:
+	case Minus:
 		return "-"
-	case times:
+	case Times:
 		return "*"
-	case divide:
+	case Divide:
 		return "/"
-	case and:
+	case And:
 		return "&"
-	case or:
+	case Or:
 		return "|"
-	case greater:
+	case Greater:
 		return ">"
-	case less:
+	case Less:
 		return "<"
-	case eq:
+	case Eq:
 		return "=="
-	case neq:
+	case Neq:
 		return "!="
-	case geq:
+	case Geq:
 		return ">="
-	case leq:
+	case Leq:
 		return "<="
-	case matchKeyword:
+	case MatchKeyword:
 		return "match"
-	case aliasKeyword:
+	case AliasKeyword:
 		return "alias"
-	case underscore:
+	case Underscore:
 		return "_"
-	case indentOpen:
-		return "<indent>"
-	case indentClose:
-		return "<deindent>"
-	case indentEndStatment:
-		return "<statement end>"
-	case identifier:
-		return fmt.Sprintf("var(%s)", t.payload)
-	case trueLiteral:
+	case Identifier:
+		return fmt.Sprintf("var(%s)", t.Payload)
+	case TrueLiteral:
 		return "true"
-	case falseLiteral:
+	case FalseLiteral:
 		return "false"
-	case unknown:
+	case Unknown:
 		return "<unknown>"
-	case stringLiteral:
-		return fmt.Sprintf("string(%s)", strconv.Quote(t.payload))
-	case numberLiteral:
-		return fmt.Sprintf("number(%s)", t.payload)
+	case StringLiteral:
+		return fmt.Sprintf("string(%s)", strconv.Quote(t.Payload))
+	case NumberLiteral:
+		return fmt.Sprintf("number(%s)", t.Payload)
 	default:
 		return "(unknown token)"
 	}
 }
 
-func newTokenizer(sourceString string, filename string) tokenizer {
+func NewTokenizer(sourceString string, filename string) tokenizer {
 	return tokenizer{
 		source:   []rune(sourceString),
 		index:    0,
@@ -187,8 +177,8 @@ func newTokenizer(sourceString string, filename string) tokenizer {
 	}
 }
 
-func (t *tokenizer) currentPos() pos {
-	return pos{
+func (t *tokenizer) currentPos() Pos {
+	return Pos{
 		fileName: t.fileName,
 		line:     t.line,
 		col:      t.col,
@@ -301,129 +291,129 @@ func (t *tokenizer) readValidNumeral() string {
 	}
 	return string(accumulator)
 }
-func (t *tokenizer) nextToken() token {
+func (t *tokenizer) nextToken() Token {
 	c := t.next()
 
 	switch c {
 	case ',':
-		return token{kind: comma, pos: t.currentPos()}
+		return Token{Kind: Comma, Pos: t.currentPos()}
 	case '.':
-		return token{kind: dot, pos: t.currentPos()}
+		return Token{Kind: Dot, Pos: t.currentPos()}
 	case '|':
-		return token{kind: or, pos: t.currentPos()}
+		return Token{Kind: Or, Pos: t.currentPos()}
 	case '(':
-		return token{kind: leftParen, pos: t.currentPos()}
+		return Token{Kind: LeftParen, Pos: t.currentPos()}
 	case ')':
-		return token{kind: rightParen, pos: t.currentPos()}
+		return Token{Kind: RightParen, Pos: t.currentPos()}
 	case '[':
-		return token{kind: leftBracket, pos: t.currentPos()}
+		return Token{Kind: LeftBracket, Pos: t.currentPos()}
 	case '\n':
 		t.line++
 		t.col = 0
-		return token{kind: emptyToken}
+		return Token{Kind: EmptyToken}
 	case ']':
-		return token{kind: rightBracket, pos: t.currentPos()}
+		return Token{Kind: RightBracket, Pos: t.currentPos()}
 	case '{':
-		return token{kind: leftBrace, pos: t.currentPos()}
+		return Token{Kind: LeftBrace, Pos: t.currentPos()}
 	case '}':
-		return token{kind: rightBrace, pos: t.currentPos()}
+		return Token{Kind: RightBrace, Pos: t.currentPos()}
 	case ':':
 		if !t.isEOF() && t.peek() == ':' {
 			t.next()
-			return token{kind: doubleColon, pos: t.currentPos()}
+			return Token{Kind: DoubleColon, Pos: t.currentPos()}
 		}
-		return token{kind: colon, pos: t.currentPos()}
+		return Token{Kind: Colon, Pos: t.currentPos()}
 	case '=':
 		if !t.isEOF() && t.peek() == '>' {
 			t.next()
-			return token{kind: fnArrow, pos: t.currentPos()}
+			return Token{Kind: FnArrow, Pos: t.currentPos()}
 		}
 		if !t.isEOF() && t.peek() == '=' {
 			t.next()
-			return token{kind: eq, pos: t.currentPos()}
+			return Token{Kind: Eq, Pos: t.currentPos()}
 		}
-		return token{kind: assign, pos: t.currentPos()}
+		return Token{Kind: Assign, Pos: t.currentPos()}
 	case '+':
 		if !t.isEOF() && t.peek() == '+' {
 			t.next()
-			return token{kind: plusOther, pos: t.currentPos()}
+			return Token{Kind: PlusOther, Pos: t.currentPos()}
 		}
-		return token{kind: plus, pos: t.currentPos()}
+		return Token{Kind: Plus, Pos: t.currentPos()}
 	case '*':
-		return token{kind: times, pos: t.currentPos()}
+		return Token{Kind: Times, Pos: t.currentPos()}
 	case '%':
-		return token{kind: modulus, pos: t.currentPos()}
+		return Token{Kind: Modulus, Pos: t.currentPos()}
 	case '>':
 		if !t.isEOF() && t.peek() == '=' {
 			t.next()
-			return token{kind: geq, pos: t.currentPos()}
+			return Token{Kind: Geq, Pos: t.currentPos()}
 		}
-		return token{kind: greater, pos: t.currentPos()}
+		return Token{Kind: Greater, Pos: t.currentPos()}
 	case '<':
 		if !t.isEOF() && t.peek() == '=' {
 			t.next()
-			return token{kind: leq, pos: t.currentPos()}
+			return Token{Kind: Leq, Pos: t.currentPos()}
 		}
-		return token{kind: less, pos: t.currentPos()}
+		return Token{Kind: Less, Pos: t.currentPos()}
 	case '-':
 		if !t.isEOF() && t.peek() == '>' {
 			t.next()
-			return token{kind: branchArrow, pos: t.currentPos()}
+			return Token{Kind: BranchArrow, Pos: t.currentPos()}
 		}
-		return token{kind: minus, pos: t.currentPos()}
+		return Token{Kind: Minus, Pos: t.currentPos()}
 	case '"':
 		pos := t.currentPos()
 		val := t.readValidString()
-		return token{
-			kind:    stringLiteral,
-			pos:     pos,
-			payload: val,
+		return Token{
+			Kind:    StringLiteral,
+			Pos:     pos,
+			Payload: val,
 		}
 	case '/':
-		return token{kind: divide, pos: t.currentPos()}
+		return Token{Kind: Divide, Pos: t.currentPos()}
 	case '#':
 		pos := t.currentPos()
 		t.next()
 		commentString := strings.TrimSpace(t.readUntilRune('\n'))
-		return token{
-			kind:    comment,
-			pos:     pos,
-			payload: commentString,
+		return Token{
+			Kind:    Comment,
+			Pos:     pos,
+			Payload: commentString,
 		}
 
 	case '0', '1', '2', '3', '4', '5', '6', '7', '8', '9':
 		pos := t.currentPos()
 		payload := string(c) + t.readValidNumeral()
-		return token{
-			kind:    numberLiteral,
-			pos:     pos,
-			payload: payload,
+		return Token{
+			Kind:    NumberLiteral,
+			Pos:     pos,
+			Payload: payload,
 		}
 	default:
 		pos := t.currentPos()
 		payload := string(c) + t.readValidIdentifier()
 		switch payload {
 		case "_":
-			return token{kind: underscore, pos: pos}
+			return Token{Kind: Underscore, Pos: pos}
 		case "!=":
-			return token{kind: neq, pos: pos}
+			return Token{Kind: Neq, Pos: pos}
 		case "match":
-			return token{kind: matchKeyword, pos: pos}
+			return Token{Kind: MatchKeyword, Pos: pos}
 		case "alias":
-			return token{kind: aliasKeyword, pos: pos}
+			return Token{Kind: AliasKeyword, Pos: pos}
 		case "true":
-			return token{kind: trueLiteral, pos: pos}
+			return Token{Kind: TrueLiteral, Pos: pos}
 		case "false":
-			return token{kind: falseLiteral, pos: pos}
+			return Token{Kind: FalseLiteral, Pos: pos}
 		default:
-			return token{kind: identifier, pos: pos, payload: payload}
+			return Token{Kind: Identifier, Pos: pos, Payload: payload}
 		}
 	}
 
 }
 
-func (t *tokenizer) tokenize() []token {
-	tokens := []token{}
+func (t *tokenizer) Tokenize() []Token {
+	tokens := []Token{}
 
 	if !t.isEOF() && t.peek() == '#' && t.peekAhead(1) == '!' {
 		// shebang-style ignored line, keep taking until EOL
@@ -443,7 +433,7 @@ func (t *tokenizer) tokenize() []token {
 		next := t.nextToken()
 
 		// Dont include comments (yet)
-		if !(next.kind == emptyToken || next.kind == comment) {
+		if !(next.Kind == EmptyToken || next.Kind == Comment) {
 			tokens = append(tokens, next)
 		}
 

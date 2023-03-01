@@ -1,6 +1,7 @@
 package main
 
 import (
+	"dghaehre/raja/ast"
 	"fmt"
 	"os"
 	"strconv"
@@ -66,14 +67,14 @@ func (c *Context) LoadFunc(name string, fn builtinFn) {
 	c.scope.put(name, BuiltinFnValue{
 		name: name,
 		fn:   fn,
-	}, pos{})
+	}, ast.Pos{})
 }
 
 func (c *Context) LoadAlias(name string, fn aliasFn) {
 	c.scope.put(name, BuiltinAliasValue{
 		name: name,
 		eqFn: fn,
-	}, pos{})
+	}, ast.Pos{})
 }
 
 func (c *Context) requireArgLen(fnName string, args []Value, count int) *runtimeError {

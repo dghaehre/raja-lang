@@ -7,24 +7,25 @@ import (
 	"strconv"
 	"strings"
 
+	"dghaehre/raja/ast"
 	color "github.com/dghaehre/termcolor"
 )
 
 type typecheckError struct {
 	reason string
-	pos
+	ast.Pos
 }
 
 func (e *typecheckError) Error() string {
 	head := color.Str(color.Red, "Type error")
-	return fmt.Sprintf("%s: at %s:\n%s", head, e.pos, e.reason)
+	return fmt.Sprintf("%s: at %s:\n%s", head, e.Pos, e.reason)
 }
 
 type paramMismatchError struct {
-	callNode     fnCallNode
+	callNode     ast.FnCallNode
 	fns          []typedFnNode // Must be more than 0
 	argsProvided typedArgs
-	pos
+	ast.Pos
 }
 
 func (e paramMismatchError) Error() string {
@@ -32,15 +33,15 @@ func (e paramMismatchError) Error() string {
 	reason := ""
 	if len(e.fns) == 1 {
 		fnMatch := e.fns[0]
-		reason = fmt.Sprintf("%s has 1 implementation at %s and is expecting: %s\n\nBut was provided: %s", e.callNode.fn, fnMatch.pos(), fnMatch.args, e.argsProvided)
+		reason = fmt.Sprintf("%s has 1 implementation at %s and is expecting: %s\n\nBut was provided: %s", e.callNode.Fn, fnMatch.pos(), fnMatch.args, e.argsProvided)
 	} else {
-		reason = fmt.Sprintf("%s has %d implementations:\n", e.callNode.fn, len(e.fns))
+		reason = fmt.Sprintf("%s has %d implementations:\n", e.callNode.Fn, len(e.fns))
 		for _, fn := range e.fns {
 			reason += fmt.Sprintf("%s\n", fn)
 		}
 		reason += fmt.Sprintf("\nBut was provided: %s", e.argsProvided)
 	}
-	return fmt.Sprintf("%s: at %s:\n%s", head, e.pos, reason)
+	return fmt.Sprintf("%s: at %s:\n%s", head, e.Pos, reason)
 }
 
 type multipleErrors struct {
@@ -72,7 +73,7 @@ type typecheckScope struct {
 
 // TODO:
 // - changing a mutable variable
-func (sc *typecheckScope) put(name string, typed typedAstNode, pos pos) error {
+func (sc *typecheckScope) put(name string, typed typedAstNode, pos ast.Pos) error {
 	switch n := typed.(type) {
 	case typedFnNode:
 		scvalue, ok := sc.vars[name]
@@ -90,7 +91,7 @@ func (sc *typecheckScope) put(name string, typed typedAstNode, pos pos) error {
 		default:
 			return &typecheckError{
 				reason: fmt.Sprintf("Expected fn value (TODO)"),
-				pos:    pos,
+				Pos:    pos,
 			}
 		}
 	default:
@@ -100,7 +101,7 @@ func (sc *typecheckScope) put(name string, typed typedAstNode, pos pos) error {
 	return nil
 }
 
-func (sc *typecheckScope) get(name string, pos pos) (typedAstNode, error) {
+func (sc *typecheckScope) get(name string, pos ast.Pos) (typedAstNode, error) {
 	if v, ok := sc.vars[name]; ok {
 		return v, nil
 	}
@@ -111,7 +112,7 @@ func (sc *typecheckScope) get(name string, pos pos) (typedAstNode, error) {
 	// TODO: what if the variable is defined later?
 	return nil, &typecheckError{
 		reason: fmt.Sprintf("%s is not defined", name),
-		pos:    pos,
+		Pos:    pos,
 	}
 }
 
@@ -131,7 +132,7 @@ func NewTypecheckContext() TypecheckContext {
 
 type typedAstNode interface {
 	String() string
-	pos() pos
+	pos() ast.Pos
 
 	// Eq(typedAstNode) bool. We might not need this one..
 	// payload We might not need this one either
@@ -146,8 +147,8 @@ func (a typedArg) String() string {
 	return fmt.Sprintf("%s:%s", a.name, a.alias)
 }
 
-func (a typedArg) pos() pos {
-	return pos{}
+func (a typedArg) pos() ast.Pos {
+	return ast.Pos{}
 }
 
 type untypedArg struct {
@@ -158,8 +159,8 @@ func (a untypedArg) String() string {
 	return a.name
 }
 
-func (a untypedArg) pos() pos {
-	return pos{}
+func (a untypedArg) pos() ast.Pos {
+	return ast.Pos{}
 }
 
 type typedArgs []typedAstNode
@@ -180,7 +181,7 @@ type typedEnumNode struct {
 	parent string
 	name   string
 	args   typedArgs
-	tok    *token
+	tok    *ast.Token
 }
 
 func (n typedEnumNode) String() string {
@@ -190,8 +191,8 @@ func (n typedEnumNode) String() string {
 	return fmt.Sprintf("%s::%s", n.parent, n.name)
 }
 
-func (n typedEnumNode) pos() pos {
-	return n.tok.pos
+func (n typedEnumNode) pos() ast.Pos {
+	return n.tok.Pos
 }
 
 // Usecase for the any type:
@@ -205,60 +206,72 @@ func (n typedAnyNode) String() string {
 	return "Any"
 }
 
-func (n typedAnyNode) pos() pos {
-	return pos{}
+func (n typedAnyNode) pos() ast.Pos {
+	return ast.Pos{}
 }
 
 type typedIntNode struct {
-	tok *token
+	tok *ast.Token
 }
 
 func (n typedIntNode) String() string {
 	return "Int"
 }
 
-func (n typedIntNode) pos() pos {
-	return n.tok.pos
+func (n typedIntNode) pos() ast.Pos {
+	return n.tok.Pos
 }
 
 type typedFloatNode struct {
-	tok *token
+	tok *ast.Token
 }
 
 func (f typedFloatNode) String() string {
 	return "Float"
 }
 
-func (n typedFloatNode) pos() pos {
-	return n.tok.pos
+func (n typedFloatNode) pos() ast.Pos {
+	return n.tok.Pos
+}
+
+type typedBoolNode struct {
+	tok *ast.Token
+}
+
+func (n typedBoolNode) String() string {
+	return "Bool"
+}
+
+func (n typedBoolNode) pos() ast.Pos {
+	return n.tok.Pos
 }
 
 type typedStringNode struct {
-	tok *token
+	tok *ast.Token
 }
 
 func (s typedStringNode) String() string {
 	return "Str"
 }
 
-func (s typedStringNode) pos() pos {
-	return s.tok.pos
+func (s typedStringNode) pos() ast.Pos {
+	return s.tok.Pos
 }
 
 type typedListNode struct {
-	tok *token
+	tok *ast.Token
 }
 
 func (s typedListNode) String() string {
 	return "List"
 }
 
-func (s typedListNode) pos() pos {
-	return s.tok.pos
+func (s typedListNode) pos() ast.Pos {
+	return s.tok.Pos
 }
 
 type typedFnNode struct {
-	tok  *token
+	tok  *ast.Token
 	args typedArgs
 	body typedAstNode
 }
@@ -267,8 +280,8 @@ func (n typedFnNode) String() string {
 	return fmt.Sprintf("(%s) => {}", n.args)
 }
 
-func (n typedFnNode) pos() pos {
-	return n.tok.pos
+func (n typedFnNode) pos() ast.Pos {
+	return n.tok.Pos
 }
 
 type typedFnNodes struct {
@@ -284,8 +297,8 @@ func (v typedFnNodes) String() string {
 }
 
 // NOTE: Should never be used
-func (v typedFnNodes) pos() pos {
-	return pos{}
+func (v typedFnNodes) pos() ast.Pos {
+	return ast.Pos{}
 }
 
 func isType(a typedAstNode, b typedAstNode) bool {
@@ -302,31 +315,31 @@ func isOneOfType(a typedAstNode, bs ...typedAstNode) bool {
 	return false
 }
 
-func toMaybeTypedArgs(args []Arg) []typedAstNode {
+func toMaybeTypedArgs(args []ast.Arg) []typedAstNode {
 	typed := make(typedArgs, 0)
 	for _, arg := range args {
-		if arg.alias == "" {
+		if arg.Alias == "" {
 			typed = append(typed, untypedArg{
-				name: arg.name,
+				name: arg.Name,
 			})
 			continue
 		}
 		var alias typedAstNode
-		switch arg.alias {
+		switch arg.Alias {
 		case "Int":
 			alias = typedIntNode{}
 		case "Str":
 			alias = typedStringNode{}
 		default:
 			alias = typedEnumNode{
-				parent: arg.alias,
+				parent: arg.Alias,
 				name:   "",
 				tok:    nil,
 			}
 		}
 
 		typed = append(typed, typedArg{
-			name:  arg.name,
+			name:  arg.Name,
 			alias: alias,
 		})
 	}
@@ -373,17 +386,17 @@ func isString(ast typedAstNode) bool {
 	return false
 }
 
-func isList(ast typedAstNode) bool {
-	switch ast.(type) {
-	case listNode:
+func isList(a typedAstNode) bool {
+	switch a.(type) {
+	case typedListNode:
 		return true
 	}
 	return false
 }
 
-func isBool(ast typedAstNode) bool {
-	switch ast.(type) {
-	case boolNode:
+func isBool(a typedAstNode) bool {
+	switch a.(type) {
+	case typedBoolNode:
 		return true
 	}
 	return false
@@ -407,8 +420,8 @@ func anyUnknowns(l ...typedAstNode) bool {
 	return false
 }
 
-func (c *TypecheckContext) typecheckFnCallNode(callNode fnCallNode, sc typecheckScope) (typedAstNode, error) {
-	fn, err := c.typecheckExpr(callNode.fn, sc)
+func (c *TypecheckContext) typecheckFnCallNode(callNode ast.FnCallNode, sc typecheckScope) (typedAstNode, error) {
+	fn, err := c.typecheckExpr(callNode.Fn, sc)
 	if err != nil {
 		return nil, err
 	}
@@ -421,7 +434,7 @@ func (c *TypecheckContext) typecheckFnCallNode(callNode fnCallNode, sc typecheck
 		//   - maybe a warning if there are multiple functions that matches?
 
 		argsProvided := make([]typedAstNode, 0)
-		for _, v := range callNode.args {
+		for _, v := range callNode.Args {
 			arg, err := c.typecheckExpr(v, sc)
 			if err != nil {
 				return nil, err
@@ -441,7 +454,7 @@ func (c *TypecheckContext) typecheckFnCallNode(callNode fnCallNode, sc typecheck
 				callNode:     callNode,
 				argsProvided: argsProvided,
 				fns:          nodes.values,
-				pos:          callNode.pos(),
+				Pos:          callNode.Pos(),
 			})
 			return typedAnyNode{}, nil
 		}
@@ -457,7 +470,7 @@ func (c *TypecheckContext) typecheckFnCallNode(callNode fnCallNode, sc typecheck
 				callNode:     callNode,
 				argsProvided: argsProvided,
 				fns:          nodes.values,
-				pos:          callNode.pos(),
+				Pos:          callNode.Pos(),
 			})
 			return typedAnyNode{}, nil
 		}
@@ -466,23 +479,24 @@ func (c *TypecheckContext) typecheckFnCallNode(callNode fnCallNode, sc typecheck
 			// TODO: maybe create a warning here that we are matching more than one?
 		}
 
+		// Should we "evaluate" the function call here?
+		// return c.typecheckExpr(fullMatch[0], sc)
 		return fullMatch[0], nil
 	default:
 		c.errors = append(c.errors, &typecheckError{
 			reason: fmt.Sprintf("%s is not a function.", fn),
-			pos:    callNode.pos(),
+			Pos:    callNode.Pos(),
 		})
+		return typedAnyNode{}, nil
 	}
-
-	return callNode, nil
 }
 
-func (c *TypecheckContext) typecheckBinaryNode(n binaryNode, sc typecheckScope) (typedAstNode, error) {
-	leftComputed, err := c.typecheckExpr(n.left, sc)
+func (c *TypecheckContext) typecheckBinaryNode(n ast.BinaryNode, sc typecheckScope) (typedAstNode, error) {
+	leftComputed, err := c.typecheckExpr(n.Left, sc)
 	if err != nil {
 		return nil, err
 	}
-	rightComputed, err := c.typecheckExpr(n.right, sc)
+	rightComputed, err := c.typecheckExpr(n.Right, sc)
 	if err != nil {
 		return nil, err
 	}
@@ -490,60 +504,61 @@ func (c *TypecheckContext) typecheckBinaryNode(n binaryNode, sc typecheckScope) 
 	// NOTE: this is just to make sure we dont acidentally say something is wrong when it isnt.
 	// Should be removed eventually.
 	if anyUnknowns(leftComputed, rightComputed) {
-		return n, nil
+		return typedAnyNode{}, nil
 	}
 
-	switch n.op {
-	case and, or:
+	switch n.Op {
+	case ast.And, ast.Or:
 		if !isBool(leftComputed) || !isBool(rightComputed) {
 			c.errors = append(c.errors, &typecheckError{
 				reason: fmt.Sprintf("%s operator only works with bool. %s and %s was used", n, leftComputed, rightComputed),
-				pos:    n.pos(),
+				Pos:    n.Pos(),
 			})
+			return typedAnyNode{}, nil
 		}
-		return n, nil
-	case plus, divide, modulus, times:
+		return typedBoolNode{tok: n.Tok}, nil
+	case ast.Plus, ast.Divide, ast.Modulus, ast.Times:
 		if !isNum(leftComputed) || !isNum(rightComputed) {
 			c.errors = append(c.errors, &typecheckError{
 				reason: fmt.Sprintf("%s operator only works with ints and floats. %s and %s was used",
-					n.tok, color.Str(color.Yellow, leftComputed.String()), color.Str(color.Yellow, rightComputed.String())),
-				pos: n.pos(),
+					n.Tok, color.Str(color.Yellow, leftComputed.String()), color.Str(color.Yellow, rightComputed.String())),
+				Pos: n.Pos(),
 			})
 			// If we find an error, we return unknown to avoid more errors.
 			return typedAnyNode{}, nil
 		}
 		return getNumType(leftComputed, rightComputed), nil
-	case plusOther:
+	case ast.PlusOther:
 		if !isIterator(leftComputed) || !isIterator(rightComputed) {
 			c.errors = append(c.errors, &typecheckError{
 				reason: fmt.Sprintf("++ operator only works with iterators (list and string). %s and %s was used",
 					color.Str(color.Yellow, leftComputed.String()), color.Str(color.Yellow, rightComputed.String())),
-				pos: n.pos(),
+				Pos: n.Pos(),
 			})
 			return typedAnyNode{}, nil
 		}
 		return getIteratorType(leftComputed, rightComputed), nil // TODO
 	default:
-		return n, nil
+		return typedAnyNode{}, nil
 	}
 }
 
 // typecheckExpr is the only function that does not 'insert' typecheckError into TypecheckContext.
 // This means that we can insert typeccheckError at the boundaries like `typecheckNodes` which is at the "beginnig" for parsing
 // a root node, and like typecheckBinaryNode which is at "the end".
-func (c *TypecheckContext) typecheckExpr(node astNode, sc typecheckScope) (typedAstNode, error) {
+func (c *TypecheckContext) typecheckExpr(node ast.AstNode, sc typecheckScope) (typedAstNode, error) {
 	switch n := node.(type) {
-	case intNode:
+	case ast.IntNode:
 		return typedIntNode{
-			tok: n.tok,
+			tok: n.Tok,
 		}, nil
-	case floatNode:
+	case ast.FloatNode:
 		return typedFloatNode{
-			tok: n.tok,
+			tok: n.Tok,
 		}, nil
-	case stringNode:
+	case ast.StringNode:
 		return typedStringNode{
-			tok: n.tok,
+			tok: n.Tok,
 		}, nil
 	// case underscoreNode:
 	// 	return underscorevalue, nil
@@ -551,54 +566,54 @@ func (c *TypecheckContext) typecheckExpr(node astNode, sc typecheckScope) (typed
 	// 	return BoolValue(n.payload), nil
 	// case matchNode:
 	// 	return c.evalMatchNode(n, sc)
-	case binaryNode:
+	case ast.BinaryNode:
 		return c.typecheckBinaryNode(n, sc)
-	case identifierNode:
-		return sc.get(n.payload, n.pos())
-	case assignmentNode:
-		assignedNode, err := c.typecheckExpr(n.right, sc)
+	case ast.IdentifierNode:
+		return sc.get(n.Payload, n.Pos())
+	case ast.AssignmentNode:
+		assignedNode, err := c.typecheckExpr(n.Right, sc)
 		if err != nil {
 			return nil, err
 		}
-		switch left := n.left.(type) {
-		case identifierNode:
-			err := sc.put(left.payload, assignedNode, n.pos())
+		switch left := n.Left.(type) {
+		case ast.IdentifierNode:
+			err := sc.put(left.Payload, assignedNode, n.Pos())
 			return assignedNode, err
 		default:
 			return nil, &typecheckError{
 				reason: fmt.Sprintf("Invalid assignment target %s", left.String()),
-				pos:    n.pos(),
+				Pos:    n.Pos(),
 			}
 		}
-	case blockNode:
+	case ast.BlockNode:
 		blockScope := typecheckScope{
 			parent: &sc,
 			vars:   map[string]typedAstNode{},
 		}
 
-		last := len(n.exprs) - 1
-		for _, expr := range n.exprs[:last] {
+		last := len(n.Exprs) - 1
+		for _, expr := range n.Exprs[:last] {
 			_, err := c.typecheckExpr(expr, blockScope)
 			if err != nil {
 				return nil, err
 			}
 		}
-		return c.typecheckExpr(n.exprs[last], blockScope)
-	case fnNode:
+		return c.typecheckExpr(n.Exprs[last], blockScope)
+	case ast.FnNode:
 		fnScope := typecheckScope{
 			parent: &sc,
 			vars:   map[string]typedAstNode{},
 		}
-		args := toMaybeTypedArgs(n.args)
+		args := toMaybeTypedArgs(n.Args)
 		for _, a := range args {
 			switch arg := a.(type) {
 			case typedArg:
-				err := fnScope.put(arg.name, arg.alias, n.pos())
+				err := fnScope.put(arg.name, arg.alias, n.Pos())
 				if err != nil {
 					return nil, err
 				}
 			case untypedArg:
-				err := fnScope.put(arg.name, typedAnyNode{}, n.pos())
+				err := fnScope.put(arg.name, typedAnyNode{}, n.Pos())
 				if err != nil {
 					return nil, err
 				}
@@ -607,26 +622,26 @@ func (c *TypecheckContext) typecheckExpr(node astNode, sc typecheckScope) (typed
 			}
 		}
 
-		body, err := c.typecheckExpr(n.body, fnScope)
+		body, err := c.typecheckExpr(n.Body, fnScope)
 		if err != nil {
 			// If the body is not typechecking, we want to report that, but the function "signature" might still be 'correct'
 			c.errors = append(c.errors, err)
 		}
 		return typedFnNode{
 			args: args,
-			tok:  n.tok,
+			tok:  n.Tok,
 			body: body,
 		}, nil
-	case fnCallNode:
+	case ast.FnCallNode:
 		return c.typecheckFnCallNode(n, sc)
 	default:
 		// TODO: remove default when we have handled everything
 		// This is just a pillow
-		return n, nil
+		return typedAnyNode{}, nil
 	}
 }
 
-func (c *TypecheckContext) typecheckNodes(nodes []astNode) (typedAstNode, error) {
+func (c *TypecheckContext) typecheckNodes(nodes []ast.AstNode) (typedAstNode, error) {
 	var returnValue typedAstNode = nil
 	for _, expr := range nodes {
 		v, err := c.typecheckExpr(expr, c.typecheckScope)
@@ -647,10 +662,10 @@ func (c *TypecheckContext) Typecheck(reader io.Reader, filename string) (typedAs
 	if err != nil {
 		return nil, err
 	}
-	tokenizer := newTokenizer(string(program), filename)
-	tokens := tokenizer.tokenize()
-	parser := newParser(tokens)
-	nodes, err := parser.parse()
+	tokenizer := ast.NewTokenizer(string(program), filename)
+	tokens := tokenizer.Tokenize()
+	parser := ast.NewParser(tokens)
+	nodes, err := parser.Parse()
 	if err != nil {
 		return nil, err
 	}

@@ -1,4 +1,4 @@
-module github.com/dghaehre/raja-lang
+module dghaehre/raja
 
 go 1.19
 

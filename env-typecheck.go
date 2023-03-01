@@ -1,5 +1,9 @@
 package main
 
+import (
+	"dghaehre/raja/ast"
+)
+
 func (c *TypecheckContext) LoadBuiltins() {
 	c.LoadFunc("__print", typedIntNode{}, typedArg{name: "value"})
 
@@ -33,5 +37,5 @@ func (c *TypecheckContext) LoadFunc(name string, returnType typedAstNode, args .
 	c.typecheckScope.put(name, typedFnNode{
 		args: args,
 		body: returnType,
-	}, pos{})
+	}, ast.Pos{})
 }

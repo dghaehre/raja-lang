@@ -1,4 +1,4 @@
-package main
+package ast
 
 import (
 	"bytes"
@@ -8,11 +8,11 @@ import (
 )
 
 type parser struct {
-	tokens []token
+	tokens []Token
 	index  int
 }
 
-func newParser(tokens []token) parser {
+func NewParser(tokens []Token) parser {
 	return parser{
 		tokens: tokens,
 		index:  0,
@@ -21,29 +21,29 @@ func newParser(tokens []token) parser {
 
 type parseError struct {
 	reason string
-	pos
+	Pos
 }
 
 func (e parseError) Error() string {
-	return fmt.Sprintf("Parse error at %s: %s", e.pos.String(), e.reason)
+	return fmt.Sprintf("Parse error at %s: %s", e.Pos.String(), e.reason)
 }
 
 func (p *parser) isEOF() bool {
 	return p.index == len(p.tokens)
 }
 
-func (p *parser) peek() token {
+func (p *parser) peek() Token {
 	return p.tokens[p.index]
 }
 
-func (p *parser) peekAhead(n int) token {
+func (p *parser) peekAhead(n int) Token {
 	if p.index+n > len(p.tokens) {
-		return token{kind: indentEndStatment}
+		return Token{Kind: IndentEndStatment}
 	}
 	return p.tokens[p.index+n]
 }
 
-func (p *parser) next() token {
+func (p *parser) next() Token {
 	tok := p.tokens[p.index]
 	if p.index < len(p.tokens) {
 		p.index++
@@ -73,11 +73,11 @@ func (p *parser) isStartOfFunction() bool {
 		}
 
 		tok := p.tokens[p.index+i]
-		switch tok.kind {
-		case rightParen:
+		switch tok.Kind {
+		case RightParen:
 			next := p.tokens[p.index+i+1]
-			return next.kind == fnArrow
-		case identifier, comma, colon:
+			return next.Kind == FnArrow
+		case Identifier, Comma, Colon:
 			i++
 			continue
 		default:
@@ -86,62 +86,62 @@ func (p *parser) isStartOfFunction() bool {
 	}
 }
 
-func (p *parser) readUntilTokenKind(kind tokKind) []token {
-	tokens := []token{}
-	for !p.isEOF() && p.peek().kind != kind {
+func (p *parser) readUntilTokenKind(kind TokKind) []Token {
+	tokens := []Token{}
+	for !p.isEOF() && p.peek().Kind != kind {
 		t := p.next()
 		tokens = append(tokens, t)
 	}
 	return tokens
 }
 
-func (p *parser) expect(kind tokKind) (token, error) {
-	tok := token{kind: kind}
+func (p *parser) expect(kind TokKind) (Token, error) {
+	tok := Token{Kind: kind}
 	if p.isEOF() {
-		return token{kind: unknown}, parseError{
+		return Token{Kind: Unknown}, parseError{
 			reason: fmt.Sprintf("Unexpected end of input, expected %s", tok),
-			pos:    tok.pos,
+			Pos:    tok.Pos,
 		}
 	}
 	next := p.next()
-	if next.kind != kind {
-		return token{kind: unknown}, parseError{
+	if next.Kind != kind {
+		return Token{Kind: Unknown}, parseError{
 			reason: fmt.Sprintf("Unexpected token %s, expected %s", next, tok),
-			pos:    next.pos,
+			Pos:    next.Pos,
 		}
 	}
 	return next, nil
 }
 
-func (p *parser) parseAssignment(left astNode) (astNode, error) {
+func (p *parser) parseAssignment(left AstNode) (AstNode, error) {
 	next := p.next()
-	if next.kind != assign {
+	if next.Kind != Assign {
 		return nil, parseError{
 			reason: fmt.Sprintf("Expected assign token, got: %s", next),
-			pos:    next.pos,
+			Pos:    next.Pos,
 		}
 	}
-	node := assignmentNode{
-		left: left,
-		tok:  &next,
+	node := AssignmentNode{
+		Left: left,
+		Tok:  &next,
 	}
 
 	right, err := p.parseNode()
 	if err != nil {
 		return nil, err
 	}
-	node.right = right
+	node.Right = right
 	return node, nil
 }
 
 // Does NOT recursively parse the right tree.
-func (p *parser) parseBinaryOP(left astNode) (astNode, error) {
+func (p *parser) parseBinaryOP(left AstNode) (AstNode, error) {
 	// NOTE: maybe add a double check for op actually being a BinaryToken
 	op := p.next()
-	node := binaryNode{
-		left: left,
-		op:   op.kind,
-		tok:  &op,
+	node := BinaryNode{
+		Left: left,
+		Op:   op.Kind,
+		Tok:  &op,
 	}
 	right, err := p.parseUnit()
 	if err != nil {
@@ -149,14 +149,14 @@ func (p *parser) parseBinaryOP(left astNode) (astNode, error) {
 	}
 
 	// dot has the 'ultimate' precedence...
-	if !p.isEOF() && p.peek().kind == dot {
+	if !p.isEOF() && p.peek().Kind == Dot {
 		right, err = p.parseBinaryDot(right)
 		if err != nil {
 			return nil, err
 		}
 	}
 
-	node.right = right
+	node.Right = right
 	return node, nil
 }
 
@@ -165,7 +165,7 @@ func (p *parser) parseBinaryOP(left astNode) (astNode, error) {
 // res = one.add(1)
 // turns into
 // res = add(one, 1)
-func (p *parser) parseBinaryDot(left astNode) (astNode, error) {
+func (p *parser) parseBinaryDot(left AstNode) (AstNode, error) {
 	next := p.next() // eat the dot
 
 	subNode, err := p.parseSubNode()
@@ -175,52 +175,52 @@ func (p *parser) parseBinaryDot(left astNode) (astNode, error) {
 
 	// Setting left as first argument in fnCallNode
 	switch callNode := subNode.(type) {
-	case fnCallNode:
-		args := []astNode{left}
-		if len(callNode.args) > 0 {
-			args = append(args, callNode.args...)
+	case FnCallNode:
+		args := []AstNode{left}
+		if len(callNode.Args) > 0 {
+			args = append(args, callNode.Args...)
 		}
-		callNode.args = args
+		callNode.Args = args
 		return callNode, nil
 
 	default:
 		return nil, parseError{
 			reason: fmt.Sprintf("Expected a callNode, got: %s", callNode),
-			pos:    next.pos,
+			Pos:    next.Pos,
 		}
 	}
 }
 
-func (p *parser) parseNumberLiteral(tok token) (astNode, error) {
-	if strings.ContainsRune(tok.payload, '.') {
-		f, err := strconv.ParseFloat(tok.payload, 64)
+func (p *parser) parseNumberLiteral(tok Token) (AstNode, error) {
+	if strings.ContainsRune(tok.Payload, '.') {
+		f, err := strconv.ParseFloat(tok.Payload, 64)
 		if err != nil {
-			return nil, parseError{reason: err.Error(), pos: tok.pos}
+			return nil, parseError{reason: err.Error(), Pos: tok.Pos}
 		}
-		return floatNode{
-			payload: f,
-			tok:     &tok,
+		return FloatNode{
+			Payload: f,
+			Tok:     &tok,
 		}, nil
 	}
-	n, err := strconv.ParseInt(tok.payload, 10, 64)
+	n, err := strconv.ParseInt(tok.Payload, 10, 64)
 	if err != nil {
-		return nil, parseError{reason: err.Error(), pos: tok.pos}
+		return nil, parseError{reason: err.Error(), Pos: tok.Pos}
 	}
-	return intNode{
-		payload: n,
-		tok:     &tok,
+	return IntNode{
+		Payload: n,
+		Tok:     &tok,
 	}, nil
 }
 
-func (p *parser) parseEnum(tok token) (astNode, error) {
-	parentName := tok.payload
+func (p *parser) parseEnum(tok Token) (AstNode, error) {
+	parentName := tok.Payload
 	p.next() // eat double colon
-	name, err := p.expect(identifier)
+	name, err := p.expect(Identifier)
 	if err != nil {
 		return nil, err
 	}
-	args := []astNode{}
-	for !p.isEOF() && p.peek().kind == leftParen {
+	args := []AstNode{}
+	for !p.isEOF() && p.peek().Kind == LeftParen {
 		_ = p.next() // eat or
 		b, err := p.parseNode()
 		if err != nil {
@@ -230,47 +230,64 @@ func (p *parser) parseEnum(tok token) (astNode, error) {
 	}
 
 	if len(args) > 0 {
-		_, err = p.expect(rightParen)
+		_, err = p.expect(RightParen)
 		if err != nil {
 			return nil, err
 		}
 	}
-	return enumNode{
-		parent: parentName,
-		name:   name.payload,
-		args:   args,
-		tok:    &tok,
+	return EnumNode{
+		Parent: parentName,
+		Name:   name.Payload,
+		Args:   args,
+		Tok:    &tok,
 	}, nil
 }
 
-func (p *parser) parseFunction(tok token) (astNode, error) {
-	tokens := p.readUntilTokenKind(rightParen)
+func SplitTokensBy(tokens []Token, kind TokKind) [][]Token {
+	newtokens := make([][]Token, 0)
+	i := 0
+	for _, t := range tokens {
+		if t.Kind == kind {
+			i++
+			continue
+		}
+		if len(newtokens) == i {
+			newtokens = append(newtokens, []Token{t})
+		} else {
+			newtokens[i] = append(newtokens[i], t)
+		}
+	}
+	return newtokens
+}
+
+func (p *parser) parseFunction(tok Token) (AstNode, error) {
+	tokens := p.readUntilTokenKind(RightParen)
 	p.next() // eat right paren
-	if p.peek().kind != fnArrow {
+	if p.peek().Kind != FnArrow {
 		return nil, parseError{
 			reason: fmt.Sprintf("Expected =>, got %s", p.peek()),
-			pos:    tok.pos,
+			Pos:    tok.Pos,
 		}
 	}
 	p.next() // eat arrow
 
 	args := []Arg{}
-	groupedTokens := SplitTokensBy(tokens, comma)
+	groupedTokens := SplitTokensBy(tokens, Comma)
 	for _, paramToken := range groupedTokens {
 		if len(paramToken) == 2 { // makes no sense..
 			return nil, parseError{
 				reason: "Check your parameters..",
-				pos:    tok.pos,
+				Pos:    tok.Pos,
 			}
 		}
 		if len(paramToken) == 1 { // No type given
-			args = append(args, Arg{name: paramToken[0].payload})
+			args = append(args, Arg{Name: paramToken[0].Payload})
 			continue
 		}
 		// type/alias given
 		args = append(args, Arg{
-			name:  paramToken[0].payload,
-			alias: paramToken[2].payload,
+			Name:  paramToken[0].Payload,
+			Alias: paramToken[2].Payload,
 		})
 	}
 
@@ -279,23 +296,23 @@ func (p *parser) parseFunction(tok token) (astNode, error) {
 		return nil, err
 	}
 
-	return fnNode{
-		args: args,
-		body: body,
-		tok:  &tok,
+	return FnNode{
+		Args: args,
+		Body: body,
+		Tok:  &tok,
 	}, nil
 }
 
-func (p *parser) parseUnit() (astNode, error) {
+func (p *parser) parseUnit() (AstNode, error) {
 	tok := p.next()
-	switch tok.kind {
-	case numberLiteral:
+	switch tok.Kind {
+	case NumberLiteral:
 		return p.parseNumberLiteral(tok)
-	case trueLiteral:
-		return boolNode{payload: true, tok: &tok}, nil
-	case stringLiteral:
+	case TrueLiteral:
+		return BoolNode{Payload: true, Tok: &tok}, nil
+	case StringLiteral:
 		payloadBuilder := bytes.Buffer{}
-		runes := []rune(tok.payload)
+		runes := []rune(tok.Payload)
 		for i := 0; i < len(runes); i++ {
 			c := runes[i]
 
@@ -335,18 +352,18 @@ func (p *parser) parseUnit() (astNode, error) {
 				_, _ = payloadBuilder.WriteRune(c)
 			}
 		}
-		return stringNode{payload: payloadBuilder.Bytes(), tok: &tok}, nil
+		return StringNode{Payload: payloadBuilder.Bytes(), Tok: &tok}, nil
 		// return stringNode{payload: tok.payload, tok: &tok}, nil
-	case falseLiteral:
-		return boolNode{payload: false, tok: &tok}, nil
-	case underscore:
-		return underscoreNode{tok: &tok}, nil
-	case identifier:
-		for !p.isEOF() && p.peek().kind == doubleColon {
+	case FalseLiteral:
+		return BoolNode{Payload: false, Tok: &tok}, nil
+	case Underscore:
+		return UnderscoreNode{tok: &tok}, nil
+	case Identifier:
+		for !p.isEOF() && p.peek().Kind == DoubleColon {
 			return p.parseEnum(tok)
 		}
-		return identifierNode{payload: tok.payload, tok: &tok}, nil
-	case leftParen:
+		return IdentifierNode{Payload: tok.Payload, Tok: &tok}, nil
+	case LeftParen:
 		if p.isStartOfFunction() {
 			return p.parseFunction(tok)
 		}
@@ -354,18 +371,18 @@ func (p *parser) parseUnit() (astNode, error) {
 		if err != nil {
 			return nil, err
 		}
-		_, err = p.expect(rightParen)
+		_, err = p.expect(RightParen)
 		if err != nil {
 			return nil, err
 		}
 		return node, nil
 
-	case aliasKeyword:
-		name, err := p.expect(identifier)
+	case AliasKeyword:
+		name, err := p.expect(Identifier)
 		if err != nil {
 			return nil, err
 		}
-		_, err = p.expect(assign)
+		_, err = p.expect(Assign)
 		if err != nil {
 			return nil, err
 		}
@@ -374,8 +391,8 @@ func (p *parser) parseUnit() (astNode, error) {
 			return nil, err
 		}
 		// ...
-		targets := []astNode{body}
-		for !p.isEOF() && p.peek().kind == or {
+		targets := []AstNode{body}
+		for !p.isEOF() && p.peek().Kind == Or {
 			_ = p.next() // eat or
 			b, err := p.parseUnit()
 			if err != nil {
@@ -383,23 +400,23 @@ func (p *parser) parseUnit() (astNode, error) {
 			}
 			targets = append(targets, b)
 		}
-		return aliasNode{
-			name:    name.payload,
-			targets: targets,
-			tok:     &tok,
+		return AliasNode{
+			Name:    name.Payload,
+			Targets: targets,
+			Tok:     &tok,
 		}, nil
 
-	case matchKeyword:
-		var cond astNode
-		branches := []matchBranch{}
+	case MatchKeyword:
+		var cond AstNode
+		branches := []MatchBranch{}
 		// if no explicit condition is provided (i.e. if the keyword is
 		// followed by a { ... }), we assume the condition is "true" to allow
 		// for the useful `if { case, case ... }` pattern.
 		var err error
-		if p.peek().kind == leftBrace {
-			cond = boolNode{
-				payload: true,
-				tok:     &tok,
+		if p.peek().Kind == LeftBrace {
+			cond = BoolNode{
+				Payload: true,
+				Tok:     &tok,
 			}
 		} else {
 			cond, err = p.parseNode()
@@ -408,14 +425,14 @@ func (p *parser) parseUnit() (astNode, error) {
 			}
 		}
 
-		_, err = p.expect(leftBrace)
+		_, err = p.expect(LeftBrace)
 		if err != nil {
 			return nil, err
 		}
 
-		for !p.isEOF() && p.peek().kind != rightBrace {
-			targets := []astNode{}
-			for !p.isEOF() && p.peek().kind != branchArrow {
+		for !p.isEOF() && p.peek().Kind != RightBrace {
+			targets := []AstNode{}
+			for !p.isEOF() && p.peek().Kind != BranchArrow {
 				// You can separatte multiple targets "within" a branch.
 				// It just really desugars to multiple targets with the same body.
 				target, err := p.parseNode()
@@ -423,14 +440,14 @@ func (p *parser) parseUnit() (astNode, error) {
 					return nil, err
 				}
 				targets = append(targets, target)
-				if p.peek().kind == comma {
+				if p.peek().Kind == Comma {
 					p.next()
 				} else {
 					break
 				}
 			}
 
-			if _, err := p.expect(branchArrow); err != nil {
+			if _, err := p.expect(BranchArrow); err != nil {
 				return nil, err
 			}
 
@@ -440,30 +457,30 @@ func (p *parser) parseUnit() (astNode, error) {
 			}
 
 			for _, target := range targets {
-				branches = append(branches, matchBranch{
-					target: target,
-					body:   body,
+				branches = append(branches, MatchBranch{
+					Target: target,
+					Body:   body,
 				})
 			}
 		}
 
-		if _, err := p.expect(rightBrace); err != nil {
+		if _, err := p.expect(RightBrace); err != nil {
 			return nil, err
 		}
 
-		return matchNode{
-			cond:     cond,
-			branches: branches,
-			tok:      &tok,
+		return MatchNode{
+			Cond:     cond,
+			Branches: branches,
+			Tok:      &tok,
 		}, nil
 
-	case leftBrace:
+	case LeftBrace:
 		firstExpr, err := p.parseNode()
 		if err != nil {
 			return nil, err
 		}
-		nodes := []astNode{firstExpr}
-		for !p.isEOF() && p.peek().kind != rightBrace {
+		nodes := []AstNode{firstExpr}
+		for !p.isEOF() && p.peek().Kind != RightBrace {
 			node, err := p.parseNode()
 			if err != nil {
 				return nil, err
@@ -471,34 +488,34 @@ func (p *parser) parseUnit() (astNode, error) {
 			nodes = append(nodes, node)
 		}
 		p.next() // eat rightBrace
-		return blockNode{
-			exprs: nodes,
-			tok:   &tok,
+		return BlockNode{
+			Exprs: nodes,
+			Tok:   &tok,
 		}, nil
 
-	case leftBracket:
-		nodes := []astNode{}
-		for !p.isEOF() && p.peek().kind != rightBracket {
+	case LeftBracket:
+		nodes := []AstNode{}
+		for !p.isEOF() && p.peek().Kind != RightBracket {
 			node, err := p.parseNode()
 			if err != nil {
 				return nil, err
 			}
 			nodes = append(nodes, node)
-			if p.peek().kind == comma {
+			if p.peek().Kind == Comma {
 				p.next()
 			} else {
 				break
 			}
 		}
 		p.next() // eat rightBracket
-		return listNode{
-			elems: nodes,
-			tok:   &tok,
+		return ListNode{
+			Elems: nodes,
+			Tok:   &tok,
 		}, nil
 	}
 	return nil, parseError{
 		reason: fmt.Sprintf("Unexpected token %s at start of unit", tok),
-		pos:    tok.pos,
+		Pos:    tok.Pos,
 	}
 }
 
@@ -506,38 +523,38 @@ func (p *parser) parseUnit() (astNode, error) {
 // - unary and binary expressions.
 // - function calls
 // Sits between parseUnit and parseNode.
-func (p *parser) parseSubNode() (astNode, error) {
+func (p *parser) parseSubNode() (AstNode, error) {
 	node, err := p.parseUnit()
 	if err != nil {
 		return nil, err
 	}
 
 	for !p.isEOF() {
-		switch p.peek().kind {
-		case leftParen: // Function call
+		switch p.peek().Kind {
+		case LeftParen: // Function call
 			next := p.next() // eat the leftParen
-			args := []astNode{}
-			for !p.isEOF() && p.peek().kind != rightParen {
+			args := []AstNode{}
+			for !p.isEOF() && p.peek().Kind != RightParen {
 				arg, err := p.parseNode()
 				if err != nil {
 					return nil, err
 				}
 				args = append(args, arg)
-				if p.peek().kind == comma {
+				if p.peek().Kind == Comma {
 					p.next()
 				} else {
 					break
 				}
 			}
-			if _, err := p.expect(rightParen); err != nil {
+			if _, err := p.expect(RightParen); err != nil {
 				return nil, err
 			}
 			// Setting the "node" from parseUnit as the function caller
 			// and we are only parsing the arguments here
-			node = fnCallNode{
-				fn:   node,
-				args: args,
-				tok:  &next,
+			node = FnCallNode{
+				Fn:   node,
+				Args: args,
+				Tok:  &next,
 			}
 		default:
 			return node, nil
@@ -547,17 +564,17 @@ func (p *parser) parseSubNode() (astNode, error) {
 }
 
 // parseNode returns the next top-level astNode from the parser
-func (p *parser) parseNode() (astNode, error) {
+func (p *parser) parseNode() (AstNode, error) {
 	node, err := p.parseSubNode()
 	if err != nil {
 		return nil, err
 	}
 
 	for !p.isEOF() {
-		switch p.peek().kind {
-		case assign:
+		switch p.peek().Kind {
+		case Assign:
 			return p.parseAssignment(node)
-		case plus, minus, times, divide, plusOther, eq, neq, greater, less, modulus, geq, leq:
+		case Plus, Minus, Times, Divide, PlusOther, Eq, Neq, Greater, Less, Modulus, Geq, Leq:
 			// TODO: add: and, or:
 			//
 			// We keep looping here because we want to adhere to order of operations.
@@ -566,7 +583,7 @@ func (p *parser) parseNode() (astNode, error) {
 			if err != nil {
 				return nil, err
 			}
-		case dot:
+		case Dot:
 			// We keep looping here because we want to adhere to order of operations.
 			// Which means that there might be more binary operations coming, and we need to catch them here.
 			node, err = p.parseBinaryDot(node)
@@ -580,8 +597,8 @@ func (p *parser) parseNode() (astNode, error) {
 	return node, nil
 }
 
-func (p *parser) parse() ([]astNode, error) {
-	nodes := []astNode{}
+func (p *parser) Parse() ([]AstNode, error) {
+	nodes := []AstNode{}
 	for !p.isEOF() {
 		node, err := p.parseNode()
 		if err != nil {
