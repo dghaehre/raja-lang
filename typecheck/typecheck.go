@@ -1,4 +1,4 @@
-package main
+package typecheck
 
 import (
 	"fmt"

@@ -1,4 +1,4 @@
-package main
+package typecheck
 
 import (
 	"fmt"
@@ -69,6 +69,14 @@ do_something("hey")`
 		args: []typedAstNode{untypedArg{name: "a"}},
 	})
 }
+
+// TODO: need to figure out how to "evaluate" a function call just by types.
+// func TestSimpleBuiltinFunctionTypecheck(t *testing.T) {
+// 	p := `
+// do_something = (i:Int) => i + 1
+// do_something(__args())`
+// 	expectTypecheckToReturn(t, p, typedIntNode{})
+// }
 
 func TestSimpleFunctionTypecheck(t *testing.T) {
 	p := `

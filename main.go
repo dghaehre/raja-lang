@@ -1,6 +1,7 @@
 package main
 
 import (
+	"dghaehre/raja/typecheck"
 	"flag"
 	"fmt"
 	color "github.com/dghaehre/termcolor"
@@ -46,7 +47,7 @@ func checkFile(filePath string) {
 		os.Exit(1)
 	}
 	defer file.Close()
-	c := NewTypecheckContext()
+	c := typecheck.NewTypecheckContext()
 	c.LoadBuiltins()
 	_, err = c.Typecheck(file, filePath)
 	if err != nil {
