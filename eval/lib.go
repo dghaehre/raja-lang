@@ -1,25 +1,14 @@
-package main
+package eval
 
 import (
+	"dghaehre/raja/lib"
 	_ "embed"
 	"fmt"
 	"strings"
 )
 
-//go:embed lib/base.raja
-var libBase string
-
-var stdlibs = map[string]string{
-	"base": libBase,
-}
-
-func isStdLib(name string) bool {
-	_, ok := stdlibs[name]
-	return ok
-}
-
 func (c *Context) LoadLib(name string) (Value, *runtimeError) {
-	program, ok := stdlibs[name]
+	program, ok := lib.Stdlibs[name]
 	if !ok {
 		return nil, &runtimeError{
 			reason: fmt.Sprintf("%s is not a valid standard library; could not import", name),

@@ -2,6 +2,7 @@ package main
 
 import (
 	"dghaehre/raja/typecheck"
+	"dghaehre/raja/eval"
 	"flag"
 	"fmt"
 	color "github.com/dghaehre/termcolor"
@@ -32,7 +33,7 @@ func runFile(filePath string) {
 		os.Exit(1)
 	}
 	defer file.Close()
-	c := NewContext()
+	c := eval.NewContext()
 	c.LoadBuiltins()
 	_, err = c.Eval(file, filePath)
 	if err != nil {
