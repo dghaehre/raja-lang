@@ -134,7 +134,7 @@ type typedAstNode interface {
 	String() string
 	pos() ast.Pos
 
-	// Eq(typedAstNode) bool. We might not need this one..
+	Eq(typedAstNode) bool
 	// payload We might not need this one either
 }
 
@@ -151,6 +151,16 @@ func (a typedArg) pos() ast.Pos {
 	return ast.Pos{}
 }
 
+// TODO: alias should never be nil
+// so this isnt really necesarry
+func (a typedArg) Eq(b typedAstNode) bool {
+	if a.alias != nil {
+		return a.alias.Eq(b)
+	} else {
+		return true
+	}
+}
+
 type untypedArg struct {
 	name string
 }
@@ -161,6 +171,10 @@ func (a untypedArg) String() string {
 
 func (a untypedArg) pos() ast.Pos {
 	return ast.Pos{}
+}
+
+func (a untypedArg) Eq(b typedAstNode) bool {
+	return true
 }
 
 type typedArgs []typedAstNode
@@ -195,6 +209,44 @@ func (n typedEnumNode) pos() ast.Pos {
 	return n.tok.Pos
 }
 
+func (a typedEnumNode) Eq(b typedAstNode) bool {
+	switch b := b.(type) {
+	case typedAnyNode:
+		return true
+	case typedEnumNode:
+		if b.parent == a.parent && b.name == a.name {
+			// TODO: match args and return true if all matches
+		}
+	}
+	return false
+}
+
+type typedAliasNode struct {
+	targets []typedAstNode
+	scope   typecheckScope
+}
+
+func (n typedAliasNode) String() string {
+	stringValues := make([]string, len(n.targets))
+	for i, s := range n.targets {
+		stringValues[i] = s.String()
+	}
+	return fmt.Sprintf("alias = %s", strings.Join(stringValues, " | "))
+}
+
+func (n typedAliasNode) pos() ast.Pos {
+	return ast.Pos{}
+}
+
+func (a typedAliasNode) Eq(b typedAstNode) bool {
+	for _, t := range a.targets {
+		if t.Eq(b) {
+			return true
+		}
+	}
+	return false
+}
+
 // Usecase for the any type:
 //   - when we don't know the type of a variable,
 //     and because our typechecking is note checking everything
@@ -210,6 +262,10 @@ func (n typedAnyNode) pos() ast.Pos {
 	return ast.Pos{}
 }
 
+func (a typedAnyNode) Eq(b typedAstNode) bool {
+	return true
+}
+
 type typedIntNode struct {
 	tok *ast.Token
 }
@@ -220,6 +276,15 @@ func (n typedIntNode) String() string {
 
 func (n typedIntNode) pos() ast.Pos {
 	return n.tok.Pos
+}
+
+func (a typedIntNode) Eq(b typedAstNode) bool {
+	switch b.(type) {
+	case typedAnyNode, typedIntNode:
+		return true
+	default:
+		return false
+	}
 }
 
 type typedFloatNode struct {
@@ -234,6 +299,15 @@ func (n typedFloatNode) pos() ast.Pos {
 	return n.tok.Pos
 }
 
+func (a typedFloatNode) Eq(b typedAstNode) bool {
+	switch b.(type) {
+	case typedAnyNode, typedFloatNode:
+		return true
+	default:
+		return false
+	}
+}
+
 type typedBoolNode struct {
 	tok *ast.Token
 }
@@ -244,6 +318,15 @@ func (n typedBoolNode) String() string {
 
 func (n typedBoolNode) pos() ast.Pos {
 	return n.tok.Pos
+}
+
+func (a typedBoolNode) Eq(b typedAstNode) bool {
+	switch b.(type) {
+	case typedAnyNode, typedBoolNode:
+		return true
+	default:
+		return false
+	}
 }
 
 type typedStringNode struct {
@@ -258,6 +341,15 @@ func (s typedStringNode) pos() ast.Pos {
 	return s.tok.Pos
 }
 
+func (a typedStringNode) Eq(b typedAstNode) bool {
+	switch b.(type) {
+	case typedAnyNode, typedStringNode:
+		return true
+	default:
+		return false
+	}
+}
+
 type typedListNode struct {
 	tok *ast.Token
 }
@@ -268,6 +360,15 @@ func (s typedListNode) String() string {
 
 func (s typedListNode) pos() ast.Pos {
 	return s.tok.Pos
+}
+
+func (a typedListNode) Eq(b typedAstNode) bool {
+	switch b.(type) {
+	case typedAnyNode, typedListNode:
+		return true
+	default:
+		return false
+	}
 }
 
 type typedFnNode struct {
@@ -284,6 +385,15 @@ func (n typedFnNode) pos() ast.Pos {
 	return n.tok.Pos
 }
 
+func (a typedFnNode) Eq(b typedAstNode) bool {
+	switch b.(type) {
+	case typedAnyNode, typedFnNode:
+		return true
+	default:
+		return false
+	}
+}
+
 type typedFnNodes struct {
 	values []typedFnNode
 }
@@ -298,7 +408,12 @@ func (v typedFnNodes) String() string {
 
 // NOTE: Should never be used
 func (v typedFnNodes) pos() ast.Pos {
-	return ast.Pos{}
+	panic("typedFnnode.pos() should never be used")
+}
+
+// NOTE: Should never be used
+func (a typedFnNodes) Eq(b typedAstNode) bool {
+	panic("typedFnnode.Eq() should never be used")
 }
 
 func isType(a typedAstNode, b typedAstNode) bool {
@@ -324,12 +439,19 @@ func toMaybeTypedArgs(args []ast.Arg) []typedAstNode {
 			})
 			continue
 		}
+
+		// Is this the right way to init builtin aliases: NO!
+		// NOTE: adding FN fails for base.raja...
 		var alias typedAstNode
 		switch arg.Alias {
 		case "Int":
 			alias = typedIntNode{}
 		case "Str":
 			alias = typedStringNode{}
+		case "List":
+			alias = typedListNode{}
+		case "Float":
+			alias = typedFloatNode{}
 		default:
 			alias = typedEnumNode{
 				parent: arg.Alias,
@@ -432,7 +554,6 @@ func (c *TypecheckContext) typecheckFnCallNode(callNode ast.FnCallNode, sc typec
 		// - find the matching functions with the same amount of args
 		// - find the matching function(s) with correct types
 		//   - maybe a warning if there are multiple functions that matches?
-
 		argsProvided := make([]typedAstNode, 0)
 		for _, v := range callNode.Args {
 			arg, err := c.typecheckExpr(v, sc)
@@ -442,6 +563,7 @@ func (c *TypecheckContext) typecheckFnCallNode(callNode ast.FnCallNode, sc typec
 			argsProvided = append(argsProvided, arg)
 		}
 
+		// matchingArgsLength is the functions that have the same args length
 		matchingArgsLength := make([]typedFnNode, 0)
 		for _, n := range nodes.values {
 			if len(n.args) == len(argsProvided) {
@@ -459,10 +581,26 @@ func (c *TypecheckContext) typecheckFnCallNode(callNode ast.FnCallNode, sc typec
 			return typedAnyNode{}, nil
 		}
 
+		// fmt.Println("matching args length::")
+		// for i := 0; i < len(matchingArgsLength); i++ {
+		// 	fmt.Printf("%+v == %+v\n", argsProvided[i], matchingArgsLength[i].args)
+		// }
+
+		// fullMatch is list of functions where the length of args is 'same'
+		// and "type" given is also correct
+		// fullMatch := callNode.Args.Eq(nodes.values)
 		fullMatch := make([]typedFnNode, 0)
-		for _, n := range matchingArgsLength {
-			// TODO
-			fullMatch = append(fullMatch, n)
+		for i := 0; i < len(matchingArgsLength); i++ {
+			argsMatching := true
+			for j := 0; j < len(argsProvided); j++ {
+				if !matchingArgsLength[i].args[j].Eq(argsProvided[j]) {
+					argsMatching = false
+				}
+			}
+			fmt.Printf("%+v == %+v matching=%v\n", argsProvided, matchingArgsLength[i].args, argsMatching)
+			if argsMatching {
+				fullMatch = append(fullMatch, matchingArgsLength[i])
+			}
 		}
 
 		if len(fullMatch) == 0 {
@@ -599,6 +737,23 @@ func (c *TypecheckContext) typecheckExpr(node ast.AstNode, sc typecheckScope) (t
 			}
 		}
 		return c.typecheckExpr(n.Exprs[last], blockScope)
+	case ast.AliasNode:
+		aliasScope := typecheckScope{
+			parent: &sc,
+			vars:   map[string]typedAstNode{},
+		}
+		targets := make([]typedAstNode, len(n.Targets))
+		for _, expr := range n.Targets {
+			typed, err := c.typecheckExpr(expr, aliasScope)
+			if err != nil {
+				return nil, err
+			}
+			targets = append(targets, typed)
+		}
+		return typedAliasNode{
+			targets: targets,
+			scope:   aliasScope,
+		}, nil
 	case ast.FnNode:
 		fnScope := typecheckScope{
 			parent: &sc,

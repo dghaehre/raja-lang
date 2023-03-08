@@ -93,3 +93,34 @@ add_one = (i:Int) => i + 1
 add_one(1, 2)`
 	expectTypecheckToError(t, p, []error{paramMismatchError{}})
 }
+
+func TestAliasTypecheck(t *testing.T) {
+	p := `
+alias Bool = true | false
+def = (a:Bool) => false
+def(true)
+`
+	expectTypecheckToReturn(t, p, typedFnNode{
+		args: []typedAstNode{typedArg{name: "a", alias: typedBoolNode{}}},
+	})
+}
+
+func TestAliasErrorTypecheck(t *testing.T) {
+	p := `
+alias Bool = true | false
+def = (a:Bool) => false
+def("hey")
+`
+	expectTypecheckToError(t, p, []error{paramMismatchError{}})
+}
+
+func TestAliasIteratorTypecheck(t *testing.T) {
+	p := `
+alias Iterator = Str | List
+def = (a:Iterator) => false
+def("hey")
+`
+	expectTypecheckToReturn(t, p, typedFnNode{
+		args: []typedAstNode{typedArg{name: "a", alias: typedBoolNode{}}},
+	})
+}

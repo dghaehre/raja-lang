@@ -21,6 +21,7 @@ exit = (a) => __exit(a)
 # alias Float
 # alias Str
 # alias List
+# alias Fn
 
 alias Tuple = [_, _]
 
