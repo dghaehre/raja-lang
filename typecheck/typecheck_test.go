@@ -27,6 +27,7 @@ func expectTypecheckToReturn(t *testing.T, program string, expected typedAstNode
 
 func expectTypecheckToError(t *testing.T, program string, expected []error) {
 	ctx := NewTypecheckContext()
+	ctx.LoadBuiltins()
 	_, err := ctx.Typecheck(strings.NewReader(program), "test")
 	if err == nil {
 		t.Errorf("Did not expect program to typecheck with no error")
@@ -65,26 +66,15 @@ func TestSimpleGenericFunctionTypecheck(t *testing.T) {
 	p := `
 do_something = (a) => __string(a)
 do_something("hey")`
-	expectTypecheckToReturn(t, p, typedFnNode{
-		args: []typedAstNode{untypedArg{name: "a"}},
-	})
+	expectTypecheckToReturn(t, p, typedStringNode{})
 }
 
-// TODO: need to figure out how to "evaluate" a function call just by types.
-// func TestSimpleBuiltinFunctionTypecheck(t *testing.T) {
-// 	p := `
-// do_something = (i:Int) => i + 1
-// do_something(__args())`
-// 	expectTypecheckToReturn(t, p, typedIntNode{})
-// }
-
+// TODO: should this really be Int?
 func TestSimpleFunctionTypecheck(t *testing.T) {
 	p := `
 add_one = (i:Int) => i + 1
 add_one(1)`
-	expectTypecheckToReturn(t, p, typedFnNode{
-		args: []typedAstNode{typedArg{name: "i", alias: typedIntNode{}}},
-	})
+	expectTypecheckToReturn(t, p, typedFloatNode{})
 }
 
 func TestSimpleFunctionErrorTypecheck(t *testing.T) {
@@ -100,9 +90,7 @@ alias Bool = true | false
 def = (a:Bool) => false
 def(true)
 `
-	expectTypecheckToReturn(t, p, typedFnNode{
-		args: []typedAstNode{typedArg{name: "a", alias: typedBoolNode{}}},
-	})
+	expectTypecheckToReturn(t, p, typedBoolNode{})
 }
 
 func TestAliasErrorTypecheck(t *testing.T) {
@@ -120,7 +108,22 @@ alias Iterator = Str | List
 def = (a:Iterator) => false
 def("hey")
 `
-	expectTypecheckToReturn(t, p, typedFnNode{
-		args: []typedAstNode{typedArg{name: "a", alias: typedBoolNode{}}},
-	})
+	expectTypecheckToReturn(t, p, typedBoolNode{})
+}
+
+func TestAliasIteratorTypecheckError(t *testing.T) {
+	p := `
+alias Iterator = Str | List
+def = (a:Iterator) => false
+def(1)
+`
+	expectTypecheckToError(t, p, []error{paramMismatchError{}})
+}
+
+func TestReadFileTypecheck(t *testing.T) {
+	p := `
+read_file = (a:Str) => __read_file(a)
+read_file("hello.txt")
+`
+	expectTypecheckToReturn(t, p, typedStringNode{})
 }

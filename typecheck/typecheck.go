@@ -206,7 +206,10 @@ func (n typedEnumNode) String() string {
 }
 
 func (n typedEnumNode) pos() ast.Pos {
-	return n.tok.Pos
+	if n.tok != nil {
+		return n.tok.Pos
+	}
+	return ast.Pos{}
 }
 
 func (a typedEnumNode) Eq(b typedAstNode) bool {
@@ -214,16 +217,15 @@ func (a typedEnumNode) Eq(b typedAstNode) bool {
 	case typedAnyNode:
 		return true
 	case typedEnumNode:
-		if b.parent == a.parent && b.name == a.name {
-			// TODO: match args and return true if all matches
-		}
+		return b.parent == a.parent && b.name == a.name
+	case typedAliasNode:
+		return b.Eq(a)
 	}
 	return false
 }
 
 type typedAliasNode struct {
 	targets []typedAstNode
-	scope   typecheckScope
 }
 
 func (n typedAliasNode) String() string {
@@ -231,7 +233,10 @@ func (n typedAliasNode) String() string {
 	for i, s := range n.targets {
 		stringValues[i] = s.String()
 	}
-	return fmt.Sprintf("alias = %s", strings.Join(stringValues, " | "))
+	if len(stringValues) <= 1 {
+		return fmt.Sprintf("%s", strings.Join(stringValues, " | "))
+	}
+	return fmt.Sprintf("(%s)", strings.Join(stringValues, " | "))
 }
 
 func (n typedAliasNode) pos() ast.Pos {
@@ -275,13 +280,18 @@ func (n typedIntNode) String() string {
 }
 
 func (n typedIntNode) pos() ast.Pos {
-	return n.tok.Pos
+	if n.tok != nil {
+		return n.tok.Pos
+	}
+	return ast.Pos{}
 }
 
 func (a typedIntNode) Eq(b typedAstNode) bool {
 	switch b.(type) {
 	case typedAnyNode, typedIntNode:
 		return true
+	case typedAliasNode:
+		return b.Eq(a)
 	default:
 		return false
 	}
@@ -296,13 +306,18 @@ func (f typedFloatNode) String() string {
 }
 
 func (n typedFloatNode) pos() ast.Pos {
-	return n.tok.Pos
+	if n.tok != nil {
+		return n.tok.Pos
+	}
+	return ast.Pos{}
 }
 
 func (a typedFloatNode) Eq(b typedAstNode) bool {
 	switch b.(type) {
 	case typedAnyNode, typedFloatNode:
 		return true
+	case typedAliasNode:
+		return b.Eq(a)
 	default:
 		return false
 	}
@@ -317,13 +332,18 @@ func (n typedBoolNode) String() string {
 }
 
 func (n typedBoolNode) pos() ast.Pos {
-	return n.tok.Pos
+	if n.tok != nil {
+		return n.tok.Pos
+	}
+	return ast.Pos{}
 }
 
 func (a typedBoolNode) Eq(b typedAstNode) bool {
 	switch b.(type) {
 	case typedAnyNode, typedBoolNode:
 		return true
+	case typedAliasNode:
+		return b.Eq(a)
 	default:
 		return false
 	}
@@ -338,13 +358,18 @@ func (s typedStringNode) String() string {
 }
 
 func (s typedStringNode) pos() ast.Pos {
-	return s.tok.Pos
+	if s.tok != nil {
+		return s.tok.Pos
+	}
+	return ast.Pos{}
 }
 
 func (a typedStringNode) Eq(b typedAstNode) bool {
-	switch b.(type) {
+	switch b := b.(type) {
 	case typedAnyNode, typedStringNode:
 		return true
+	case typedAliasNode:
+		return b.Eq(a)
 	default:
 		return false
 	}
@@ -359,13 +384,18 @@ func (s typedListNode) String() string {
 }
 
 func (s typedListNode) pos() ast.Pos {
-	return s.tok.Pos
+	if s.tok != nil {
+		return s.tok.Pos
+	}
+	return ast.Pos{}
 }
 
 func (a typedListNode) Eq(b typedAstNode) bool {
 	switch b.(type) {
 	case typedAnyNode, typedListNode:
 		return true
+	case typedAliasNode:
+		return b.Eq(a)
 	default:
 		return false
 	}
@@ -382,13 +412,18 @@ func (n typedFnNode) String() string {
 }
 
 func (n typedFnNode) pos() ast.Pos {
-	return n.tok.Pos
+	if n.tok != nil {
+		return n.tok.Pos
+	}
+	return ast.Pos{}
 }
 
 func (a typedFnNode) Eq(b typedAstNode) bool {
 	switch b.(type) {
 	case typedAnyNode, typedFnNode:
 		return true
+	case typedAliasNode:
+		return b.Eq(a)
 	default:
 		return false
 	}
@@ -430,7 +465,7 @@ func isOneOfType(a typedAstNode, bs ...typedAstNode) bool {
 	return false
 }
 
-func toMaybeTypedArgs(args []ast.Arg) []typedAstNode {
+func (c *TypecheckContext) toMaybeTypedArgs(args []ast.Arg, sc typecheckScope) []typedAstNode {
 	typed := make(typedArgs, 0)
 	for _, arg := range args {
 		if arg.Alias == "" {
@@ -439,39 +474,25 @@ func toMaybeTypedArgs(args []ast.Arg) []typedAstNode {
 			})
 			continue
 		}
-
-		// Is this the right way to init builtin aliases: NO!
-		// NOTE: adding FN fails for base.raja...
-		var alias typedAstNode
-		switch arg.Alias {
-		case "Int":
-			alias = typedIntNode{}
-		case "Str":
-			alias = typedStringNode{}
-		case "List":
-			alias = typedListNode{}
-		case "Float":
-			alias = typedFloatNode{}
-		default:
-			alias = typedEnumNode{
-				parent: arg.Alias,
-				name:   "",
-				tok:    nil,
-			}
+		a, err := sc.get(arg.Alias, ast.Pos{})
+		if err != nil {
+			c.errors = append(c.errors, err)
+			a = typedAnyNode{}
 		}
-
 		typed = append(typed, typedArg{
 			name:  arg.Name,
-			alias: alias,
+			alias: a,
 		})
 	}
 	return typed
 }
 
 func isNum(typed typedAstNode) bool {
-	switch typed.(type) {
+	switch n := typed.(type) {
 	case typedIntNode, typedFloatNode:
 		return true
+	case typedAliasNode:
+		return n.Eq(typedIntNode{}) || n.Eq(typedFloatNode{})
 	}
 	return false
 }
@@ -581,11 +602,6 @@ func (c *TypecheckContext) typecheckFnCallNode(callNode ast.FnCallNode, sc typec
 			return typedAnyNode{}, nil
 		}
 
-		// fmt.Println("matching args length::")
-		// for i := 0; i < len(matchingArgsLength); i++ {
-		// 	fmt.Printf("%+v == %+v\n", argsProvided[i], matchingArgsLength[i].args)
-		// }
-
 		// fullMatch is list of functions where the length of args is 'same'
 		// and "type" given is also correct
 		// fullMatch := callNode.Args.Eq(nodes.values)
@@ -597,7 +613,6 @@ func (c *TypecheckContext) typecheckFnCallNode(callNode ast.FnCallNode, sc typec
 					argsMatching = false
 				}
 			}
-			fmt.Printf("%+v == %+v matching=%v\n", argsProvided, matchingArgsLength[i].args, argsMatching)
 			if argsMatching {
 				fullMatch = append(fullMatch, matchingArgsLength[i])
 			}
@@ -616,10 +631,7 @@ func (c *TypecheckContext) typecheckFnCallNode(callNode ast.FnCallNode, sc typec
 		if len(fullMatch) > 1 {
 			// TODO: maybe create a warning here that we are matching more than one?
 		}
-
-		// Should we "evaluate" the function call here?
-		// return c.typecheckExpr(fullMatch[0], sc)
-		return fullMatch[0], nil
+		return fullMatch[0].body, nil
 	default:
 		c.errors = append(c.errors, &typecheckError{
 			reason: fmt.Sprintf("%s is not a function.", fn),
@@ -694,16 +706,14 @@ func (c *TypecheckContext) typecheckExpr(node ast.AstNode, sc typecheckScope) (t
 		return typedFloatNode{
 			tok: n.Tok,
 		}, nil
+	case ast.BoolNode:
+		return typedBoolNode{
+			tok: n.Tok,
+		}, nil
 	case ast.StringNode:
 		return typedStringNode{
 			tok: n.Tok,
 		}, nil
-	// case underscoreNode:
-	// 	return underscorevalue, nil
-	// case boolNode:
-	// 	return BoolValue(n.payload), nil
-	// case matchNode:
-	// 	return c.evalMatchNode(n, sc)
 	case ast.BinaryNode:
 		return c.typecheckBinaryNode(n, sc)
 	case ast.IdentifierNode:
@@ -743,23 +753,27 @@ func (c *TypecheckContext) typecheckExpr(node ast.AstNode, sc typecheckScope) (t
 			vars:   map[string]typedAstNode{},
 		}
 		targets := make([]typedAstNode, len(n.Targets))
-		for _, expr := range n.Targets {
+		for i, expr := range n.Targets {
 			typed, err := c.typecheckExpr(expr, aliasScope)
 			if err != nil {
 				return nil, err
 			}
-			targets = append(targets, typed)
+			targets[i] = typed
 		}
-		return typedAliasNode{
+		typedAlias := typedAliasNode{
 			targets: targets,
-			scope:   aliasScope,
-		}, nil
+		}
+		err := sc.put(n.Name, typedAlias, n.Pos())
+		if err != nil {
+			return nil, err
+		}
+		return typedAlias, nil
 	case ast.FnNode:
 		fnScope := typecheckScope{
 			parent: &sc,
 			vars:   map[string]typedAstNode{},
 		}
-		args := toMaybeTypedArgs(n.Args)
+		args := c.toMaybeTypedArgs(n.Args, sc)
 		for _, a := range args {
 			switch arg := a.(type) {
 			case typedArg:
@@ -781,6 +795,7 @@ func (c *TypecheckContext) typecheckExpr(node ast.AstNode, sc typecheckScope) (t
 		if err != nil {
 			// If the body is not typechecking, we want to report that, but the function "signature" might still be 'correct'
 			c.errors = append(c.errors, err)
+			body = typedAnyNode{}
 		}
 		return typedFnNode{
 			args: args,
