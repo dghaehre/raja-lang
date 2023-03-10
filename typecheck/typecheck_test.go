@@ -1,6 +1,8 @@
 package typecheck
 
 import (
+	"dghaehre/raja/lib"
+	"errors"
 	"fmt"
 	"strconv"
 	"strings"
@@ -43,6 +45,20 @@ func expectTypecheckToError(t *testing.T, program string, expected []error) {
 	if len(expected) != len(multiErrors.errors) {
 		// TODO: Check that the errors are the same
 		t.Errorf("Expected %d errors, got %d\n\n%s", len(expected), len(multiErrors.errors), multiErrors)
+	}
+}
+
+func TestBaseLib(t *testing.T) {
+	ctx := NewTypecheckContext()
+	ctx.LoadBuiltins()
+	base, ok := lib.Stdlibs["base"]
+	if !ok {
+		t.Errorf("Could not load lib/base.raja")
+	}
+	_, err := ctx.Typecheck(strings.NewReader(base), "test")
+	if err != nil {
+		err = errors.Join(err, errors.New("Did not expect base.raja to find type errors"))
+		t.Error(err)
 	}
 }
 
@@ -126,4 +142,25 @@ read_file = (a:Str) => __read_file(a)
 read_file("hello.txt")
 `
 	expectTypecheckToReturn(t, p, typedStringNode{})
+}
+
+func TestFoldIndexTypecheck(t *testing.T) {
+	p := `
+alias Iterator = List | Str
+
+alias Maybe =
+		Maybe::Some(_)
+	| Maybe::None
+
+get = (a:Iterator, b:Int) => __index(a, b, false)
+
+fold_index = (iter:Iterator, acc, f:Fn, i:Int) => match iter.get(i) {
+	Maybe::Some(a) -> iter.fold_index(f(acc, a, i), f, i + 1)
+		_						 -> acc
+}
+add_one = (acc:Iterator, a:Int, i:Int) => acc ++ [a + 1]
+
+fold_index([1, 2, 3], 0, add_one, 0)
+`
+	expectTypecheckToReturn(t, p, typedIntNode{nil})
 }

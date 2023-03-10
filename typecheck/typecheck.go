@@ -225,10 +225,14 @@ func (a typedEnumNode) Eq(b typedAstNode) bool {
 }
 
 type typedAliasNode struct {
+	name    string
 	targets []typedAstNode
 }
 
 func (n typedAliasNode) String() string {
+	if n.name != "" {
+		return n.name
+	}
 	stringValues := make([]string, len(n.targets))
 	for i, s := range n.targets {
 		stringValues[i] = s.String()
@@ -269,6 +273,27 @@ func (n typedAnyNode) pos() ast.Pos {
 
 func (a typedAnyNode) Eq(b typedAstNode) bool {
 	return true
+}
+
+// Usecase for AnyFn:
+// when user creates map = (a, f:Fn) => ...
+type typedAnyFnNode struct{}
+
+func (n typedAnyFnNode) String() string {
+	return "Fn"
+}
+
+func (n typedAnyFnNode) pos() ast.Pos {
+	return ast.Pos{}
+}
+
+func (a typedAnyFnNode) Eq(b typedAstNode) bool {
+	switch b.(type) {
+	case typedAnyNode, typedFnNode:
+		return true
+	default:
+		return false
+	}
 }
 
 type typedIntNode struct {
@@ -489,7 +514,7 @@ func (c *TypecheckContext) toMaybeTypedArgs(args []ast.Arg, sc typecheckScope) [
 
 func isNum(typed typedAstNode) bool {
 	switch n := typed.(type) {
-	case typedIntNode, typedFloatNode:
+	case typedIntNode, typedFloatNode, typedAnyNode:
 		return true
 	case typedAliasNode:
 		return n.Eq(typedIntNode{}) || n.Eq(typedFloatNode{})
@@ -546,9 +571,11 @@ func isBool(a typedAstNode) bool {
 }
 
 func isIterator(ast typedAstNode) bool {
-	switch ast.(type) {
-	case typedListNode, typedStringNode:
+	switch n := ast.(type) {
+	case typedListNode, typedStringNode, typedAnyNode:
 		return true
+	case typedAliasNode:
+		return n.Eq(typedStringNode{}) || n.Eq(typedListNode{})
 	}
 	return false
 }
@@ -569,7 +596,7 @@ func (c *TypecheckContext) typecheckFnCallNode(callNode ast.FnCallNode, sc typec
 		return nil, err
 	}
 
-	switch nodes := fn.(type) {
+	switch n := fn.(type) {
 	case typedFnNodes:
 		// TODO:
 		// - find the matching functions with the same amount of args
@@ -586,7 +613,7 @@ func (c *TypecheckContext) typecheckFnCallNode(callNode ast.FnCallNode, sc typec
 
 		// matchingArgsLength is the functions that have the same args length
 		matchingArgsLength := make([]typedFnNode, 0)
-		for _, n := range nodes.values {
+		for _, n := range n.values {
 			if len(n.args) == len(argsProvided) {
 				matchingArgsLength = append(matchingArgsLength, n)
 			}
@@ -596,7 +623,7 @@ func (c *TypecheckContext) typecheckFnCallNode(callNode ast.FnCallNode, sc typec
 			c.errors = append(c.errors, &paramMismatchError{
 				callNode:     callNode,
 				argsProvided: argsProvided,
-				fns:          nodes.values,
+				fns:          n.values,
 				Pos:          callNode.Pos(),
 			})
 			return typedAnyNode{}, nil
@@ -622,7 +649,7 @@ func (c *TypecheckContext) typecheckFnCallNode(callNode ast.FnCallNode, sc typec
 			c.errors = append(c.errors, &paramMismatchError{
 				callNode:     callNode,
 				argsProvided: argsProvided,
-				fns:          nodes.values,
+				fns:          n.values,
 				Pos:          callNode.Pos(),
 			})
 			return typedAnyNode{}, nil
@@ -632,6 +659,15 @@ func (c *TypecheckContext) typecheckFnCallNode(callNode ast.FnCallNode, sc typec
 			// TODO: maybe create a warning here that we are matching more than one?
 		}
 		return fullMatch[0].body, nil
+	case typedAnyNode:
+		return typedAnyNode{}, nil
+	case typedAliasNode:
+		// TODO: maybe do this better?
+		// fmt.Printf("alias %+v = %T\n", fn, fn)
+		return typedAliasNode{}, nil
+	case typedAnyFnNode:
+		// fmt.Printf("anyFn %+v = %T\n", fn, fn)
+		return typedAnyNode{}, nil
 	default:
 		c.errors = append(c.errors, &typecheckError{
 			reason: fmt.Sprintf("%s is not a function.", fn),
@@ -761,6 +797,7 @@ func (c *TypecheckContext) typecheckExpr(node ast.AstNode, sc typecheckScope) (t
 			targets[i] = typed
 		}
 		typedAlias := typedAliasNode{
+			name:    n.Name,
 			targets: targets,
 		}
 		err := sc.put(n.Name, typedAlias, n.Pos())
