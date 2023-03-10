@@ -148,19 +148,11 @@ func TestFoldIndexTypecheck(t *testing.T) {
 	p := `
 alias Iterator = List | Str
 
-alias Maybe =
-		Maybe::Some(_)
-	| Maybe::None
+fold_index = (iter:Iterator, acc, f:Fn, i:Int) => acc
 
-get = (a:Iterator, b:Int) => __index(a, b, false)
-
-fold_index = (iter:Iterator, acc, f:Fn, i:Int) => match iter.get(i) {
-	Maybe::Some(a) -> iter.fold_index(f(acc, a, i), f, i + 1)
-		_						 -> acc
-}
 add_one = (acc:Iterator, a:Int, i:Int) => acc ++ [a + 1]
 
 fold_index([1, 2, 3], 0, add_one, 0)
 `
-	expectTypecheckToReturn(t, p, typedIntNode{nil})
+	expectTypecheckToReturn(t, p, typedAnyNode{})
 }

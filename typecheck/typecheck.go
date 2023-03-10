@@ -288,9 +288,11 @@ func (n typedAnyFnNode) pos() ast.Pos {
 }
 
 func (a typedAnyFnNode) Eq(b typedAstNode) bool {
-	switch b.(type) {
-	case typedAnyNode, typedFnNode:
+	switch b := b.(type) {
+	case typedAnyNode, typedFnNode, typedAnyFnNode, typedFnNodes:
 		return true
+	case typedAliasNode:
+		return b.Eq(a)
 	default:
 		return false
 	}
@@ -659,14 +661,8 @@ func (c *TypecheckContext) typecheckFnCallNode(callNode ast.FnCallNode, sc typec
 			// TODO: maybe create a warning here that we are matching more than one?
 		}
 		return fullMatch[0].body, nil
-	case typedAnyNode:
-		return typedAnyNode{}, nil
-	case typedAliasNode:
-		// TODO: maybe do this better?
-		// fmt.Printf("alias %+v = %T\n", fn, fn)
-		return typedAliasNode{}, nil
-	case typedAnyFnNode:
-		// fmt.Printf("anyFn %+v = %T\n", fn, fn)
+	case typedAnyNode, typedAliasNode, typedAnyFnNode:
+		// ^ Some of these might need some improvement
 		return typedAnyNode{}, nil
 	default:
 		c.errors = append(c.errors, &typecheckError{
