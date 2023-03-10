@@ -8,6 +8,8 @@ import (
 	"strings"
 
 	"dghaehre/raja/ast"
+	"dghaehre/raja/lib"
+
 	color "github.com/dghaehre/termcolor"
 )
 
@@ -858,6 +860,15 @@ func (c *TypecheckContext) typecheckNodes(nodes []ast.AstNode) (typedAstNode, er
 		return nil, c.multipleErrors
 	}
 	return returnValue, nil
+}
+
+func (c *TypecheckContext) LoadLibs() error {
+	base, ok := lib.Stdlibs["base"]
+	if !ok {
+		return fmt.Errorf("Could not load lib/base.raja")
+	}
+	_, err := c.Typecheck(strings.NewReader(base), "base")
+	return err
 }
 
 func (c *TypecheckContext) Typecheck(reader io.Reader, filename string) (typedAstNode, error) {

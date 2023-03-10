@@ -67,7 +67,7 @@ func TestSimpleAdditionTypecheck(t *testing.T) {
 a = 1
 b = 2
 a + b`
-	expectTypecheckToReturn(t, p, typedIntNode{nil})
+	expectTypecheckToReturn(t, p, typedIntNode{})
 }
 
 func TestSimpleAdditionFloatTypecheck(t *testing.T) {
@@ -75,8 +75,28 @@ func TestSimpleAdditionFloatTypecheck(t *testing.T) {
 a = 1
 b = 2.1
 a + b`
-	expectTypecheckToReturn(t, p, typedFloatNode{nil})
+	expectTypecheckToReturn(t, p, typedFloatNode{})
 }
+
+// TODO
+// func TestIntAndFloatsTypecheck(t *testing.T) {
+// 	pNum := `
+// alias Num = Int | Float
+// one = 1
+// add = (a:Num, b:Num) => a + b
+//
+// one.add(1).add(1)
+// `
+// 	expectTypecheckToReturn(t, pNum, typedFloatNode{})
+//
+// 	pInt := `
+// one = 1
+// add = (a:Int, b:Int) => a +  b
+//
+// one.add(1).add(1)
+// `
+// 	expectTypecheckToReturn(t, pInt, typedIntNode{})
+// }
 
 func TestSimpleGenericFunctionTypecheck(t *testing.T) {
 	p := `
