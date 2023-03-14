@@ -56,7 +56,7 @@ func checkFile(filePath string) {
 		fmt.Println(err)
 		return
 	}
-	color.Println(color.Green, "No type errors found!")
+	color.Println(color.Green, "If it compiles it works")
 }
 
 func main() {

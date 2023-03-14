@@ -25,25 +25,25 @@ func (e *typecheckError) Error() string {
 
 type paramMismatchError struct {
 	callNode     ast.FnCallNode
-	fns          []typedFnNode // Must be more than 0
+	fns          []typedFnNode // Must be more than 0, unless the error does not make sense
 	argsProvided typedArgs
 	ast.Pos
 }
 
 func (e paramMismatchError) Error() string {
-	head := color.Str(color.Red, "Param mismatch")
+	head := color.Str(color.Red, "Parameter mismatch in function call")
 	reason := ""
 	if len(e.fns) == 1 {
 		fnMatch := e.fns[0]
-		reason = fmt.Sprintf("%s has 1 implementation at %s and is expecting: %s\n\nBut was provided: %s", e.callNode.Fn, fnMatch.pos(), fnMatch.args, e.argsProvided)
+		reason = fmt.Sprintf("%s has 1 implementation at %s\n", e.callNode.Fn, fnMatch.pos())
 	} else {
 		reason = fmt.Sprintf("%s has %d implementations:\n", e.callNode.Fn, len(e.fns))
-		for _, fn := range e.fns {
-			reason += fmt.Sprintf("%s\n", fn)
-		}
-		reason += fmt.Sprintf("\nBut was provided: %s", e.argsProvided)
 	}
-	return fmt.Sprintf("%s: at %s:\n%s", head, e.Pos, reason)
+	for _, fn := range e.fns {
+		reason += fmt.Sprintf("%s\n", fn)
+	}
+	reason += fmt.Sprintf("\nBut was provided: %s at %s", e.argsProvided, e.Pos)
+	return fmt.Sprintf("%s\n%s", head, reason)
 }
 
 type multipleErrors struct {
@@ -526,16 +526,76 @@ func isNum(typed typedAstNode) bool {
 	return false
 }
 
-// Given a list of all Ints, return Int
-// otherwise return Float
-func getNumType(typed ...typedAstNode) typedAstNode {
-	for _, t := range typed {
-		_, ok := t.(typedIntNode)
-		if !ok {
+func isAliasWithName(t typedAstNode, name string) bool {
+	a, ok := t.(typedAliasNode)
+	if !ok {
+		return false
+	}
+	return a.name == name
+}
+
+// Expects left and right to be either
+// - Int
+// - Float
+// - Int (alias)
+// - Float (alias)
+// - Num (alias)
+
+// This is ugly as fuck...
+// Relying on tests here to make this consistent
+func getNumTypeFromBinOp(left typedAstNode, right typedAstNode) typedAstNode {
+	switch left := left.(type) {
+	case typedIntNode:
+		if isAliasWithName(right, "Int") {
+			return intAlias
+		}
+		if isAliasWithName(right, "Float") {
+			return floatAlias
+		}
+		_, ok := right.(typedIntNode)
+		if ok {
+			return typedIntNode{}
+		}
+		_, ok = right.(typedFloatNode)
+		if ok {
+			return typedFloatNode{}
+		}
+	case typedAliasNode:
+		if left.name == "Int" {
+			if isAliasWithName(right, "Int") {
+				return intAlias
+			}
+			_, ok := right.(typedIntNode)
+			if ok {
+				return intAlias
+			}
+			if isAliasWithName(right, "Float") {
+				return floatAlias
+			}
+			_, ok = right.(typedFloatNode)
+			if ok {
+				return floatAlias
+			}
+		}
+		if left.name == "Float" {
+			if isAliasWithName(right, "Int") || isAliasWithName(right, "Float") {
+				return floatAlias
+			}
+		}
+	case typedFloatNode:
+		if isAliasWithName(right, "Int") || isAliasWithName(right, "Float") {
+			return floatAlias
+		}
+		_, ok := right.(typedFloatNode)
+		if ok {
+			return typedFloatNode{}
+		}
+		_, ok = right.(typedIntNode)
+		if ok {
 			return typedFloatNode{}
 		}
 	}
-	return typedIntNode{}
+	return numAlias
 }
 
 // Given a list of all List, return List
@@ -711,7 +771,7 @@ func (c *TypecheckContext) typecheckBinaryNode(n ast.BinaryNode, sc typecheckSco
 			// If we find an error, we return unknown to avoid more errors.
 			return typedAnyNode{}, nil
 		}
-		return getNumType(leftComputed, rightComputed), nil
+		return getNumTypeFromBinOp(leftComputed, rightComputed), nil
 	case ast.PlusOther:
 		if !isIterator(leftComputed) || !isIterator(rightComputed) {
 			c.errors = append(c.errors, &typecheckError{

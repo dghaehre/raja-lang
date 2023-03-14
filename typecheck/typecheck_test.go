@@ -78,25 +78,75 @@ a + b`
 	expectTypecheckToReturn(t, p, typedFloatNode{})
 }
 
-// TODO
-// func TestIntAndFloatsTypecheck(t *testing.T) {
-// 	pNum := `
-// alias Num = Int | Float
-// one = 1
-// add = (a:Num, b:Num) => a + b
-//
-// one.add(1).add(1)
-// `
-// 	expectTypecheckToReturn(t, pNum, typedFloatNode{})
-//
-// 	pInt := `
-// one = 1
-// add = (a:Int, b:Int) => a +  b
-//
-// one.add(1).add(1)
-// `
-// 	expectTypecheckToReturn(t, pInt, typedIntNode{})
-// }
+func TestGetNumTypeFromBinOp(t *testing.T) {
+	int := typedIntNode{}
+	float := typedFloatNode{}
+
+	res := getNumTypeFromBinOp(int, float)
+	_, ok := res.(typedFloatNode)
+	if !ok {
+		t.Errorf("Int + Float should be Float, got %T", res)
+	}
+
+	res = getNumTypeFromBinOp(float, int)
+	_, ok = res.(typedFloatNode)
+	if !ok {
+		t.Errorf("Float + Int should be Float, got %T", res)
+	}
+
+	res = getNumTypeFromBinOp(int, floatAlias)
+	_, ok = res.(typedFloatNode)
+	if !isAliasWithName(res, "Float") {
+		t.Errorf("Int + Float(alias) should be Float(alias), got %+v with type %T", res, res)
+	}
+
+	res = getNumTypeFromBinOp(intAlias, float)
+	_, ok = res.(typedFloatNode)
+	if !isAliasWithName(res, "Float") {
+		t.Errorf("Int(alias) + Float should be Float(alias), got %+v with type %T", res, res)
+	}
+
+	res = getNumTypeFromBinOp(int, int)
+	_, ok = res.(typedIntNode)
+	if !ok {
+		t.Errorf("Int + Int should be Int, got %T", res)
+	}
+
+	res = getNumTypeFromBinOp(float, float)
+	_, ok = res.(typedFloatNode)
+	if !ok {
+		t.Errorf("Float + Float should be Float, got %T", res)
+	}
+
+	res = getNumTypeFromBinOp(int, numAlias)
+	if !isAliasWithName(res, "Num") {
+		t.Errorf("Int + Num should be Num, got %+v with type %T", res, res)
+	}
+}
+
+func TestIntAndFloatsTypecheck(t *testing.T) {
+	pNum := `
+alias Num = Float | Int
+one = 1
+add = (a:Num, b:Num) => a + b
+one.add(1).add(1)
+`
+	expectTypecheckToReturn(t, pNum, numAlias)
+
+	pInt := `
+	one = 1
+	add = (a:Int, b:Int) => a + b
+	one.add(1)
+	`
+	expectTypecheckToReturn(t, pInt, typedIntNode{})
+
+	pFloat := `
+	one = 1
+	add = (a:Int, b:Float) => a + b
+	one.add(1.3)
+	`
+	expectTypecheckToReturn(t, pFloat, typedFloatNode{})
+}
 
 func TestSimpleGenericFunctionTypecheck(t *testing.T) {
 	p := `
@@ -105,12 +155,11 @@ do_something("hey")`
 	expectTypecheckToReturn(t, p, typedStringNode{})
 }
 
-// TODO: should this really be Int?
 func TestSimpleFunctionTypecheck(t *testing.T) {
 	p := `
 add_one = (i:Int) => i + 1
 add_one(1)`
-	expectTypecheckToReturn(t, p, typedFloatNode{})
+	expectTypecheckToReturn(t, p, typedIntNode{})
 }
 
 func TestSimpleFunctionErrorTypecheck(t *testing.T) {
