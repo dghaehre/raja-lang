@@ -17,6 +17,8 @@ alias Num = Int | Float
 
 alias Iterator = List | Str
 
+alias Any = _
+
 
 
 # Wrapping builtin functions so that they can be overloaded.
@@ -148,10 +150,6 @@ and_then = (res:Result, f:Fn) => match res {
 	_							-> res
 }
 
-to_maybe = (res:Result) => match res {
-	Result::Ok(a) -> to_some(a)
-	_							-> Maybe::None
-}
 
 
 
@@ -163,6 +161,10 @@ alias Maybe =
 
 to_some = (a) => Maybe::Some(a)
 
+to_maybe = (res:Result) => match res {
+	Result::Ok(a) -> to_some(a)
+	_							-> Maybe::None
+}
 unwrap = (m:Maybe) => match m {
 	Maybe::Some(a) -> a
 	Maybe::None		 -> panic("Trying to unwrap Maybe::None")
@@ -183,9 +185,9 @@ and = (m:Maybe, a) => match m {
 	_							 -> m
 }
 
-and_then = (m:Maybe, f:Fn) => match res {
+and_then = (m:Maybe, f:Fn) => match m {
 	Maybe::Some(a) -> f(a)
-	_							 -> res
+	_							 -> m
 }
 
 to_result = (m:Maybe, err) => match m {
