@@ -111,7 +111,6 @@ func (sc *typecheckScope) get(name string, pos ast.Pos) (typedAstNode, error) {
 		return sc.parent.get(name, pos)
 	}
 
-	// TODO: what if the variable is defined later?
 	return nil, &typecheckError{
 		reason: fmt.Sprintf("%s is not defined", name),
 		Pos:    pos,
@@ -203,6 +202,9 @@ type typedEnumNode struct {
 func (n typedEnumNode) String() string {
 	if n.name == "" {
 		return n.parent
+	}
+	if len(n.args) > 0 {
+		return fmt.Sprintf("%s::%s%s", n.parent, n.name, n.args)
 	}
 	return fmt.Sprintf("%s::%s", n.parent, n.name)
 }
@@ -480,10 +482,6 @@ func (a typedFnNodes) Eq(b typedAstNode) bool {
 	panic("typedFnnode.Eq() should never be used")
 }
 
-func isType(a typedAstNode, b typedAstNode) bool {
-	return reflect.TypeOf(a) == reflect.TypeOf(b)
-}
-
 func isOneOfType(a typedAstNode, bs ...typedAstNode) bool {
 	t := reflect.TypeOf(a)
 	for _, v := range bs {
@@ -596,6 +594,22 @@ func getNumTypeFromBinOp(left typedAstNode, right typedAstNode) typedAstNode {
 		}
 	}
 	return numAlias
+}
+
+func getTypeFromMatchBodies(types []typedAstNode) typedAstNode {
+	typedNodes := []typedAstNode{}
+	for _, t := range types {
+		_, isAny := t.(typedAnyNode)
+		if isAny {
+			return typedAnyNode{}
+		}
+		if !isOneOfType(t, typedNodes...) {
+			typedNodes = append(typedNodes, t)
+		}
+	}
+	return typedAliasNode{
+		targets: typedNodes,
+	}
 }
 
 // Given a list of all List, return List
@@ -735,6 +749,36 @@ func (c *TypecheckContext) typecheckFnCallNode(callNode ast.FnCallNode, sc typec
 	}
 }
 
+// Returns typeAstNode of branch.Body
+func (c *TypecheckContext) typecheckMatchBranch(branch ast.MatchBranch, sc typecheckScope) (typedAstNode, error) {
+	bodyScope := typecheckScope{
+		parent: &sc,
+		vars:   map[string]typedAstNode{},
+	}
+	// Target might be an EnumNode, which needs to be handled
+	// differently when its in a match target as it might put variables into scope
+	switch t := branch.Target.(type) {
+	case ast.IdentifierNode:
+		bodyScope.put(t.Payload, typedAnyNode{}, t.Pos())
+	case ast.EnumNode:
+		for _, v := range t.Args {
+			identifier, isIdentifier := v.(ast.IdentifierNode)
+			if isIdentifier {
+				err := bodyScope.put(identifier.Payload, typedAnyNode{}, identifier.Pos())
+				if err != nil {
+					return nil, err
+				}
+			}
+		}
+	default:
+		_, err := c.typecheckExpr(branch.Target, bodyScope)
+		if err != nil {
+			return nil, err
+		}
+	}
+	return c.typecheckExpr(branch.Body, bodyScope)
+}
+
 func (c *TypecheckContext) typecheckBinaryNode(n ast.BinaryNode, sc typecheckScope) (typedAstNode, error) {
 	leftComputed, err := c.typecheckExpr(n.Left, sc)
 	if err != nil {
@@ -781,7 +825,7 @@ func (c *TypecheckContext) typecheckBinaryNode(n ast.BinaryNode, sc typecheckSco
 			})
 			return typedAnyNode{}, nil
 		}
-		return getIteratorType(leftComputed, rightComputed), nil // TODO
+		return getIteratorType(leftComputed, rightComputed), nil
 	default:
 		return typedAnyNode{}, nil
 	}
@@ -792,6 +836,8 @@ func (c *TypecheckContext) typecheckBinaryNode(n ast.BinaryNode, sc typecheckSco
 // a root node, and like typecheckBinaryNode which is at "the end".
 func (c *TypecheckContext) typecheckExpr(node ast.AstNode, sc typecheckScope) (typedAstNode, error) {
 	switch n := node.(type) {
+	case ast.UnderscoreNode:
+		return typedAnyNode{}, nil
 	case ast.IntNode:
 		return typedIntNode{
 			tok: n.Tok,
@@ -899,6 +945,39 @@ func (c *TypecheckContext) typecheckExpr(node ast.AstNode, sc typecheckScope) (t
 		}, nil
 	case ast.FnCallNode:
 		return c.typecheckFnCallNode(n, sc)
+	case ast.EnumNode:
+		args := []typedAstNode{}
+		for _, v := range n.Args {
+			arg, err := c.typecheckExpr(v, sc)
+			if err != nil {
+				c.errors = append(c.errors, err)
+				return typedAnyNode{}, nil
+			}
+			args = append(args, arg)
+		}
+		return typedEnumNode{
+			parent: n.Parent,
+			name:   n.Name,
+			args:   args,
+		}, nil
+	case ast.MatchNode:
+		_, err := c.typecheckExpr(n.Cond, sc)
+		if err != nil {
+			c.errors = append(c.errors, err)
+			return typedAnyFnNode{}, nil
+		}
+
+		bodies := make([]typedAstNode, 0)
+		for _, branch := range n.Branches {
+			body, err := c.typecheckMatchBranch(branch, sc)
+			if err != nil {
+				c.errors = append(c.errors, err)
+				bodies = append(bodies, typedAnyNode{})
+			} else {
+				bodies = append(bodies, body)
+			}
+		}
+		return getTypeFromMatchBodies(bodies), nil
 	default:
 		// TODO: remove default when we have handled everything
 		// This is just a pillow
