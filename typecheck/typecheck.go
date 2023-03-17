@@ -18,7 +18,7 @@ type typecheckError struct {
 	ast.Pos
 }
 
-func (e *typecheckError) Error() string {
+func (e typecheckError) Error() string {
 	head := color.Str(color.Red, "Type error")
 	return fmt.Sprintf("%s: at %s:\n%s", head, e.Pos, e.reason)
 }
@@ -71,6 +71,23 @@ type typecheckScope struct {
 
 	// vars needs to be extended to handle multiple functions with the same name
 	vars map[string]typedAstNode
+
+	// used to keep track of recursion
+	currentFn string
+}
+
+func (sc *typecheckScope) putCurrentFn(name string) {
+	sc.currentFn = name
+}
+
+func (sc *typecheckScope) isRecursion(name string) bool {
+	if sc.currentFn == name {
+		return true
+	}
+	if sc.parent == nil {
+		return false
+	}
+	return sc.parent.isRecursion(name)
 }
 
 // TODO:
@@ -125,8 +142,9 @@ type TypecheckContext struct {
 func NewTypecheckContext() TypecheckContext {
 	return TypecheckContext{
 		typecheckScope: typecheckScope{
-			parent: nil,
-			vars:   map[string]typedAstNode{},
+			parent:    nil,
+			vars:      map[string]typedAstNode{},
+			currentFn: "",
 		},
 	}
 }
@@ -671,6 +689,12 @@ func anyUnknowns(l ...typedAstNode) bool {
 func (c *TypecheckContext) typecheckFnCallNode(callNode ast.FnCallNode, sc typecheckScope) (typedAstNode, error) {
 	fn, err := c.typecheckExpr(callNode.Fn, sc)
 	if err != nil {
+		i, isIdentifier := callNode.Fn.(ast.IdentifierNode)
+		if isIdentifier {
+			if sc.isRecursion(i.Payload) {
+				return typedAnyNode{}, nil
+			}
+		}
 		return nil, err
 	}
 
@@ -760,6 +784,16 @@ func (c *TypecheckContext) typecheckMatchBranch(branch ast.MatchBranch, sc typec
 	switch t := branch.Target.(type) {
 	case ast.IdentifierNode:
 		bodyScope.put(t.Payload, typedAnyNode{}, t.Pos())
+	case ast.ListNode:
+		for _, v := range t.Elems {
+			identifier, isIdentifier := v.(ast.IdentifierNode)
+			if isIdentifier {
+				err := bodyScope.put(identifier.Payload, typedAnyNode{}, identifier.Pos())
+				if err != nil {
+					return nil, err
+				}
+			}
+		}
 	case ast.EnumNode:
 		for _, v := range t.Args {
 			identifier, isIdentifier := v.(ast.IdentifierNode)
@@ -859,6 +893,13 @@ func (c *TypecheckContext) typecheckExpr(node ast.AstNode, sc typecheckScope) (t
 	case ast.IdentifierNode:
 		return sc.get(n.Payload, n.Pos())
 	case ast.AssignmentNode:
+		_, isFn := n.Right.(ast.FnNode)
+		if isFn {
+			left, isIdentifier := n.Left.(ast.IdentifierNode)
+			if isIdentifier {
+				sc.putCurrentFn(left.Payload)
+			}
+		}
 		assignedNode, err := c.typecheckExpr(n.Right, sc)
 		if err != nil {
 			return nil, err

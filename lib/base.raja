@@ -311,7 +311,7 @@ split_by = (a:Str, by:Str, acc:List, i:Int) => match a.has_prefix_at?(by, i) {
 			Maybe::Some(v) -> match acc.length() {
 				0 -> a.split_by(by, [v], i + 1)
 				_ -> {
-					newacc = acc.map_last((x) => x ++ a.get_unsafe(i))
+					newacc = acc.map_last((x) => x ++ (a.get(i).unwrap()))
 					a.split_by(by, newacc, i + 1)
 				}
 			}
