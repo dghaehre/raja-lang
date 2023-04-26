@@ -153,7 +153,7 @@ type FnNode struct {
 
 func (n FnNode) String() string {
 	// This is stupid...
-  // TODO: gotta be a better way to cast to []fmt.Stringer
+	// TODO: gotta be a better way to cast to []fmt.Stringer
 	var args []fmt.Stringer
 	for _, v := range n.Args {
 		args = append(args, v)
@@ -180,6 +180,14 @@ func (n FnCallNode) String() string {
 }
 func (n FnCallNode) Pos() Pos {
 	return n.Tok.Pos
+}
+
+// Used to get which variable to update when using the builtin update function
+func (n FnCallNode) FirstArgName() string {
+	if len(n.Args) == 0 {
+		return ""
+	}
+	return n.Args[0].String()
 }
 
 type ListNode struct {

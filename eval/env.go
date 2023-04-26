@@ -7,7 +7,7 @@ import (
 	"strconv"
 )
 
-type builtinFn func([]Value) (Value, *runtimeError)
+type builtinFn func(string, []Value) (Value, *runtimeError)
 
 type BuiltinFnValue struct {
 	name string
@@ -47,6 +47,7 @@ func (c *Context) LoadBuiltins() {
 	c.LoadFunc("__args", c.rajaArgs)
 	c.LoadFunc("__exit", c.rajaExit)
 	c.LoadFunc("__read_file", c.rajaReadFile)
+	c.LoadFunc("update", c.rajaUpdate)
 
 	// Types/Alias
 	c.LoadAlias("Int", c.rajaAliasInt)
@@ -120,7 +121,7 @@ func toErr(v Value) Value {
 
 // Builtin functions
 
-func (c *Context) rajaString(args []Value) (Value, *runtimeError) {
+func (c *Context) rajaString(_ string, args []Value) (Value, *runtimeError) {
 	if err := c.requireArgLen("__string", args, 1); err != nil {
 		return nil, err
 	}
@@ -132,7 +133,7 @@ func (c *Context) rajaString(args []Value) (Value, *runtimeError) {
 	}
 }
 
-func (c *Context) rajaInt(args []Value) (Value, *runtimeError) {
+func (c *Context) rajaInt(_ string, args []Value) (Value, *runtimeError) {
 	if err := c.requireArgLen("__int", args, 1); err != nil {
 		return nil, err
 	}
@@ -148,7 +149,7 @@ func (c *Context) rajaInt(args []Value) (Value, *runtimeError) {
 	}
 }
 
-func (c *Context) rajaPrint(args []Value) (Value, *runtimeError) {
+func (c *Context) rajaPrint(_ string, args []Value) (Value, *runtimeError) {
 	if err := c.requireArgLen("__print", args, 1); err != nil {
 		return nil, err
 	}
@@ -164,7 +165,7 @@ func (c *Context) rajaPrint(args []Value) (Value, *runtimeError) {
 	return IntValue(n), nil
 }
 
-func (c *Context) rajaReadFile(args []Value) (Value, *runtimeError) {
+func (c *Context) rajaReadFile(_ string, args []Value) (Value, *runtimeError) {
 	if err := c.requireArgLen("__read_file", args, 1); err != nil {
 		return nil, err
 	}
@@ -185,7 +186,7 @@ func (c *Context) rajaReadFile(args []Value) (Value, *runtimeError) {
 	return StringValue(string(bs)), nil
 }
 
-func (c *Context) rajaArgs(_ []Value) (Value, *runtimeError) {
+func (c *Context) rajaArgs(_ string, _ []Value) (Value, *runtimeError) {
 	goArgs := os.Args
 	args := make(ListValue, len(goArgs))
 	for i, arg := range goArgs {
@@ -194,7 +195,7 @@ func (c *Context) rajaArgs(_ []Value) (Value, *runtimeError) {
 	return &args, nil
 }
 
-func (c *Context) rajaExit(args []Value) (Value, *runtimeError) {
+func (c *Context) rajaExit(_ string, args []Value) (Value, *runtimeError) {
 	if err := c.requireArgLen("__exit", args, 1); err != nil {
 		return nil, err
 	}
@@ -211,6 +212,14 @@ func (c *Context) rajaExit(args []Value) (Value, *runtimeError) {
 	}
 }
 
+func (c *Context) rajaUpdate(name string, args []Value) (Value, *runtimeError) {
+	if err := c.requireArgLen("__exit", args, 2); err != nil {
+		return nil, err
+	}
+	err := c.scope.update(name, args[1], ast.Pos{})
+	return args[1], err
+}
+
 // Supports:
 // - List
 // - Str
@@ -218,7 +227,7 @@ func (c *Context) rajaExit(args []Value) (Value, *runtimeError) {
 // which is: Iterator
 //
 // Returns a Maybe if third argument is false
-func (c *Context) rajaIndex(args []Value) (Value, *runtimeError) {
+func (c *Context) rajaIndex(_ string, args []Value) (Value, *runtimeError) {
 	if err := c.requireArgLen("__index", args, 3); err != nil {
 		return nil, err
 	}

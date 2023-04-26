@@ -23,6 +23,15 @@ func expectProgramToReturn(t *testing.T, program string, expected Value) {
 	}
 }
 
+func expectProgramToFail(t *testing.T, program string) {
+	ctx := NewContext()
+	ctx.LoadBuiltins()
+	val, err := ctx.Eval(strings.NewReader(program), "test")
+	if err == nil {
+		t.Errorf("Did expect program to exit with error, but returned: %s", strconv.Quote(val.String()))
+	}
+}
+
 func TestVariablesAndAddition(t *testing.T) {
 	p := `
   test = 10
@@ -136,10 +145,28 @@ func TestMatch(t *testing.T) {
 func TestMutableVariable(t *testing.T) {
 	p := `
   mut_x = 1
-  mut_x = 2
+  mut_x.update(2)
   mut_x
   `
 	expectProgramToReturn(t, p, IntValue(2))
+}
+
+func TestMutableVariableNoMut(t *testing.T) {
+	p := `
+  x = 1
+  x.update(2)
+  x
+  `
+	expectProgramToFail(t, p)
+}
+
+func TestMutableVariableFail(t *testing.T) {
+	p := `
+  mut_x = 1
+  mut_x = 2
+  mut_x
+  `
+	expectProgramToFail(t, p)
 }
 
 func TestAliasAndMultipleDispatch(t *testing.T) {
@@ -238,17 +265,17 @@ func TestBaseMapLast(t *testing.T) {
 }
 
 // TODO
-// func TestVariableModificationInClosure(t *testing.T) {
-// 	p := `
-// 	x = [1]
-// 	mut_var := "hello"
-// 	x.map((v) => {
-// 		mut_var = "world"
-// 	})
-// 	mut_var
-// 	`
-// 	expectProgramToReturn(t, p, StringValue("world"))
-// }
+func TestVariableModificationInClosure(t *testing.T) {
+	p := `
+	x = [1]
+	mut_var = "hello"
+	x.map((v) => {
+		mut_var.update("world")
+	})
+	mut_var
+	`
+	expectProgramToReturn(t, p, StringValue("world"))
+}
 
 func TestBaseSort(t *testing.T) {
 	p := `
