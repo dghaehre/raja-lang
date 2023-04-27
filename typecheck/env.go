@@ -56,7 +56,7 @@ func (c *TypecheckContext) LoadBuiltins() {
 	c.LoadFunc("__print", typedIntNode{}, typedArg{name: "value"})
 
 	c.LoadFunc("__string", typedStringNode{}, typedArg{name: "value"})
-	c.LoadFunc("__int", typedIntNode{}, typedArg{name: "value"})
+	c.LoadFunc("__int", maybeAlias, typedArg{name: "value"})
 	c.LoadFunc("__args", typedListNode{})
 	c.LoadFunc("__exit", typedAnyNode{}, typedArg{name: "value", alias: typedIntNode{}})
 	c.LoadFunc("__read_file", typedStringNode{}, typedArg{name: "filename", alias: typedStringNode{}})
