@@ -140,6 +140,11 @@ unwrap_or = (r:Result, o) => match r {
 	_							-> o
 }
 
+unwrap_or = (r:Result, f:Fn) => match r {
+	Result::Ok(a)    -> a
+	Result::Err(err) -> f(err)
+}
+
 and = (res:Result, a:Result) => match res {
 	Result::Ok(_) -> a
 	_							-> res
@@ -178,6 +183,11 @@ map = (m:Maybe, f:Fn) => match m {
 unwrap_or = (m:Maybe, o) => match m {
 	Maybe::Some(a) -> a
 	_							 -> o
+}
+
+unwrap_or = (m:Maybe, f:Fn) => match m {
+	Maybe::Some(a) -> a
+	Maybe::None    -> f()
 }
 
 and = (m:Maybe, a) => match m {

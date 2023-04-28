@@ -172,18 +172,14 @@ func (c *Context) rajaReadFile(_ string, args []Value) (Value, *runtimeError) {
 
 	s, ok := args[0].(StringValue)
 	if !ok {
-		return nil, &runtimeError{
-			reason: fmt.Sprintf("Unexpected argument to print: %s", args[0]),
-		}
+		return toErr(StringValue(fmt.Sprintf("Unexpected argument to print: %s", args[0]))), nil
 	}
 
 	bs, err := os.ReadFile(string(s))
 	if err != nil {
-		return nil, &runtimeError{
-			reason: fmt.Sprintf("Could not read file: %s. Error: %s", s, err),
-		}
+		return toErr(StringValue(err.Error())), nil
 	}
-	return StringValue(string(bs)), nil
+	return toOk(StringValue(string(bs))), nil
 }
 
 func (c *Context) rajaArgs(_ string, _ []Value) (Value, *runtimeError) {
