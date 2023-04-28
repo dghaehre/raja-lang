@@ -208,6 +208,7 @@ func TestResultAlias(t *testing.T) {
 func TestListFunctions(t *testing.T) {
 	p := `
 	x = [1, 2, 3, 4, 5]
+	increment = (n:Num) => n + 1
 	x.map(increment).sum()
 	`
 	expectProgramToReturn(t, p, IntValue(20))
@@ -255,6 +256,15 @@ func TestBaseSplitBy(t *testing.T) {
 	expectProgramToReturn(t, p, &ListValue{StringValue("some"), StringValue("string"), StringValue("that does"), StringValue("something")})
 }
 
+func TestBaseSplitByWithMatchingEnding(t *testing.T) {
+	p := `
+	x = "test\nsdfsdf\nsdfsdf\n"
+  x.split_by("\n").length()
+`
+	expectProgramToReturn(t, p, IntValue(3))
+}
+
+
 func TestBaseMapLast(t *testing.T) {
 	p := `
 	x = [1, 2, 3]
@@ -264,7 +274,6 @@ func TestBaseMapLast(t *testing.T) {
 	expectProgramToReturn(t, p, &ListValue{IntValue(1), IntValue(2), IntValue(30)})
 }
 
-// TODO
 func TestVariableModificationInClosure(t *testing.T) {
 	p := `
 	x = [1]
