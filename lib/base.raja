@@ -140,6 +140,11 @@ unwrap_or = (r:Result, o) => match r {
 	_							-> o
 }
 
+unwrap_or = (r:Result, f:Fn) => match r {
+	Result::Ok(a)    -> a
+	Result::Err(err) -> f(err)
+}
+
 and = (res:Result, a:Result) => match res {
 	Result::Ok(_) -> a
 	_							-> res
@@ -178,6 +183,11 @@ map = (m:Maybe, f:Fn) => match m {
 unwrap_or = (m:Maybe, o) => match m {
 	Maybe::Some(a) -> a
 	_							 -> o
+}
+
+unwrap_or = (m:Maybe, f:Fn) => match m {
+	Maybe::Some(a) -> a
+	Maybe::None    -> f()
 }
 
 and = (m:Maybe, a) => match m {
@@ -280,11 +290,6 @@ range = (l:List, i:Int, b:Int) => match (b >= i) {
 range = (a:Int, b:Int) => range([], a, b)
 
 
-# Num functions
-
-increment = (n:Num) => n + 1
-
-
 # Str functions
 
 # Doesnt really do anything, just a simple way to specify what the function expects instead of putting this into comments
@@ -306,7 +311,13 @@ is_whitespace? = (c:Char) => match c {
 }
 
 split_by = (a:Str, by:Str, acc:List, i:Int) => match a.has_prefix_at?(by, i) {
-	true -> a.split_by(by, [acc, []], i + by.length())
+	true -> {
+		is_ending = (i + by.length() == a.length())
+		match is_ending {
+			true -> acc
+			false -> a.split_by(by, [acc, []], i + by.length())
+		}
+	}
 	false -> match a.get(i) {
 			Maybe::Some(v) -> match acc.length() {
 				0 -> a.split_by(by, [v], i + 1)
@@ -355,19 +366,23 @@ into_two = (list:List) => {
 	[list.take(index), list.tail(index)]
 }
 
-# Takes in to already sorted lists, and merges them
+# Takes in two already sorted lists, and merges them
 _merge_msort = (left:List, right:List, so:SortOrder) => match [left, right] {
 	[[], []] -> []
 	[xs, []] -> xs
 	[[], ys] -> ys
-	[l, r]   -> match so {
-		SortOrder::Asc -> match ((l.head().unwrap()) < (r.head().unwrap())) {
-			true -> [l.head().unwrap()].append(_merge_msort(r, l.tail(), so))
-			_    -> [r.head().unwrap()].append(_merge_msort(l, r.tail(), so))
-		}
-		SortOrder::Desc -> match ((l.head().unwrap()) > (r.head().unwrap())) {
-			true -> [l.head().unwrap()].append(_merge_msort(r, l.tail(), so))
-			_    -> [r.head().unwrap()].append(_merge_msort(l, r.tail(), so))
+	[l, r]   -> {
+		lh = l.head().unwrap()
+		rh = r.head().unwrap()
+		match so {
+			SortOrder::Asc -> match (lh < rh) {
+				true -> [lh].append(_merge_msort(r, l.tail(), so))
+				_    -> [rh].append(_merge_msort(l, r.tail(), so))
+			}
+			SortOrder::Desc -> match (lh > rh) {
+				true -> [lh].append(_merge_msort(r, l.tail(), so))
+				_    -> [rh].append(_merge_msort(l, r.tail(), so))
+			}
 		}
 	}
 }

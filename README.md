@@ -2,9 +2,9 @@
 
 ![Test](https://github.com/dghaehre/raja-lang/actions/workflows/test.yml/badge.svg)
 
-Raja is an expressive, dynamically typed, functional programming language.
+Raja is an expressive, dynamically and strongly typed, functional programming language.
 
-It is a small language which uses multiple dispatch and type annototations to make it feel like a statically typed languange.
+It is a small language which uses multiple dispatch and type annotations to make it feel like a statically typed language.
 
 Here is an example program:
 

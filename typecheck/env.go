@@ -22,6 +22,26 @@ var maybeAlias typedAstNode = typedAliasNode{
 	},
 }
 
+var resultAlias typedAstNode = typedAliasNode{
+	name: "Result",
+	targets: []typedAstNode{
+		typedEnumNode{
+			parent: "Result",
+			name:   "Ok",
+			args: []typedAstNode{
+				typedAnyNode{},
+			},
+		},
+		typedEnumNode{
+			parent: "Result",
+			name:   "Err",
+			args: []typedAstNode{
+				typedAnyNode{},
+			},
+		},
+	},
+}
+
 var iteratorAlias typedAstNode = typedAliasNode{
 	name: "Iterator",
 	targets: []typedAstNode{
@@ -56,7 +76,7 @@ func (c *TypecheckContext) LoadBuiltins() {
 	c.LoadFunc("__print", typedIntNode{}, typedArg{name: "value"})
 
 	c.LoadFunc("__string", typedStringNode{}, typedArg{name: "value"})
-	c.LoadFunc("__int", maybeAlias, typedArg{name: "value"})
+	c.LoadFunc("__int", resultAlias, typedArg{name: "value"})
 	c.LoadFunc("__args", typedListNode{})
 	c.LoadFunc("__exit", typedAnyNode{}, typedArg{name: "value", alias: typedIntNode{}})
 	c.LoadFunc("__read_file", typedStringNode{}, typedArg{name: "filename", alias: typedStringNode{}})

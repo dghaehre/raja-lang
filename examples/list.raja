@@ -1,5 +1,6 @@
 org = range(1, 1000)
+increment = (n:Num) => n + 1
 
 org.map(increment).last().unwrap().println()
 
-println(org.length() == 1000)
+println("length is 1000:", org.length() == 1000)

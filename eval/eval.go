@@ -313,6 +313,30 @@ func (v UnderscoreValue) Eq(u Value) bool {
 
 // Scope
 
+// Update variable
+// TODO: how do we not know we want to "update" a variable in the outer scope?
+func (sc *scope) update(name string, v Value, pos ast.Pos) *runtimeError {
+	_, exist := sc.vars[name]
+	if exist {
+		if isMutable(name) {
+			sc.vars[name] = v
+			return nil
+		} else {
+			return &runtimeError{
+				reason: fmt.Sprintf("%s is not mutable.\nTry renaming the variable to mut_%s", name, name),
+				Pos:    pos,
+			}
+		}
+	}
+	if sc.parent != nil {
+		return sc.parent.update(name, v, pos)
+	}
+	return &runtimeError{
+		reason: fmt.Sprintf("Cannot find variable %s to update.\nMake sure you have already created the variable before calling update", name),
+		Pos:    pos,
+	}
+}
+
 // Put variable into scope
 func (sc *scope) put(name string, v Value, pos ast.Pos) *runtimeError {
 	switch value := v.(type) {
@@ -336,15 +360,16 @@ func (sc *scope) put(name string, v Value, pos ast.Pos) *runtimeError {
 			}
 		}
 	default:
-		if isMutable(name) {
-			// TODO: how do we not know we want to "update" a variable in the outer scope?
-			sc.vars[name] = v
-			return nil
-		}
 		_, exist := sc.vars[name]
 		if exist {
+			if isMutable(name) {
+				return &runtimeError{
+					reason: fmt.Sprintf("To update a variable, use the update function.\nExample: %s.update(%s)", name, v),
+					Pos:    pos,
+				}
+			}
 			return &runtimeError{
-				reason: fmt.Sprintf("%s is not mutable.\nTry renaming the variable to mut_%s", name, name),
+				reason: fmt.Sprintf("%s is not mutable.\nTry renaming the variable to mut_%s and use the update function\nExample: %s.update(%s)", name, name, name, name),
 				Pos:    pos,
 			}
 		}
@@ -634,7 +659,7 @@ func (c *Context) evalFnCallNode(n ast.FnCallNode, sc scope, args []Value) (Valu
 	}
 	switch left := leftComputed.(type) {
 	case BuiltinFnValue:
-		return left.fn(args)
+		return left.fn(n.FirstArgName(), args)
 	case FnValues: // Multiple Dispatch
 		v, err := c.getCorrectFnValue(n, left, args)
 		if err != nil {
