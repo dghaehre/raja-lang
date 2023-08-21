@@ -135,7 +135,7 @@ rec_func = (a:Int) => {
 }
 rec_func(0)
 `
-  // Can we get this to return typedIntNode?
+	// Can we get this to return typedIntNode?
 	expectTypecheckToReturn(t, p, typedAnyNode{})
 }
 
@@ -258,7 +258,7 @@ func TestReadFileTypecheck(t *testing.T) {
 read_file = (a:Str) => __read_file(a)
 read_file("hello.txt")
 `
-	expectTypecheckToReturn(t, p, typedStringNode{})
+	expectTypecheckToReturn(t, p, typedAliasNode{name: "Result"})
 }
 
 func TestFoldIndexTypecheck(t *testing.T) {
