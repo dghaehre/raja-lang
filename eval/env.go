@@ -40,15 +40,6 @@ func (v BuiltinAliasValue) Eq(u Value) bool {
 }
 
 func (c *Context) LoadBuiltins() {
-	c.LoadFunc("__print", c.rajaPrint)
-	c.LoadFunc("__index", c.rajaIndex)
-	c.LoadFunc("__string", c.rajaString)
-	c.LoadFunc("__int", c.rajaInt)
-	c.LoadFunc("__args", c.rajaArgs)
-	c.LoadFunc("__exit", c.rajaExit)
-	c.LoadFunc("__read_file", c.rajaReadFile)
-	c.LoadFunc("update", c.rajaUpdate)
-
 	// Types/Alias
 	c.LoadAlias("Int", c.rajaAliasInt)
 	c.LoadAlias("Float", c.rajaAliasFloat)
@@ -56,7 +47,17 @@ func (c *Context) LoadBuiltins() {
 	c.LoadAlias("List", c.rajaAliasList)
 	c.LoadAlias("Fn", c.rajaAliasFn)
 	c.LoadAlias("Enum", c.rajaAliasEnum)
-	// TODO: Bool
+	// TODO: Bool?
+
+	c.LoadFunc("__print", c.rajaPrint)
+	c.LoadFunc("__index", c.rajaIndex)
+	c.LoadFunc("__string", c.rajaString)
+	c.LoadFunc("__int", c.rajaInt)
+	c.LoadFunc("__args", c.rajaArgs)
+	c.LoadFunc("__exit", c.rajaExit)
+	c.LoadFunc("__read_file", c.rajaReadFile)
+	c.LoadFunc("__length", c.rajaLength)
+	c.LoadFunc("update", c.rajaUpdate)
 
 	_, err := c.LoadLib("base")
 	if err != nil {
@@ -163,6 +164,20 @@ func (c *Context) rajaPrint(_ string, args []Value) (Value, *runtimeError) {
 
 	n, _ := os.Stdout.Write(outputString)
 	return IntValue(n), nil
+}
+
+func (c *Context) rajaLength(_ string, args []Value) (Value, *runtimeError) {
+	if err := c.requireArgLen("__length", args, 1); err != nil {
+		return nil, err
+	}
+	switch arg := args[0].(type) {
+	case StringValue:
+		return IntValue(len(arg)), nil
+	case *ListValue:
+		return IntValue(len(*arg)), nil
+	default:
+		return toErr(StringValue(fmt.Sprintf("Cannot get length of %s", arg))), nil
+	}
 }
 
 func (c *Context) rajaReadFile(_ string, args []Value) (Value, *runtimeError) {

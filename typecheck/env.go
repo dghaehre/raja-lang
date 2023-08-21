@@ -80,6 +80,7 @@ func (c *TypecheckContext) LoadBuiltins() {
 	c.LoadFunc("__args", typedListNode{})
 	c.LoadFunc("__exit", typedAnyNode{}, typedArg{name: "value", alias: typedIntNode{}})
 	c.LoadFunc("__read_file", resultAlias, typedArg{name: "filename", alias: typedStringNode{}})
+	c.LoadFunc("__length", typedIntNode{}, typedArg{name: "iter", alias: iteratorAlias})
 	c.LoadFunc("__index", maybeAlias, typedArg{name: "iter", alias: iteratorAlias}, typedArg{name: "index", alias: typedIntNode{}}, typedArg{name: "unsafe?", alias: typedBoolNode{}})
 
 	// c.LoadFunc("__index", typedArg{name: "iter", alias: typedAliasNode{}})

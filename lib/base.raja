@@ -33,6 +33,7 @@ get_args = () => __args()
 get_unsafe = (a:Iterator, b:Int) => __index(a, b, true)
 get = (a:Iterator, b:Int) => __index(a, b, false)
 exit = (a) => __exit(a)
+length = (a:Iterator) => __length(a)
 
 
 # Print with ending newline.
@@ -211,13 +212,6 @@ to_result = (m:Maybe, err) => match m {
 # List
 #
 
-length = (list:Iterator, i:Int) => match list.get(i) {
-	Maybe::None -> i
-	_						-> list.length(i + 1)
-}
-length = (list:Iterator) => list.length(0)
-
-
 # Returns a Maybe
 head = (l:Iterator) => l.get(0)
 
@@ -342,7 +336,7 @@ trim_left = (a:Str) => a.trim_left(0)
 # Removes whitespace characters at the end of the string
 trim_right = (a:Str, i:Int) => match a.get(i).map(is_whitespace?) {
 	Maybe::Some(true) -> trim_right(a, i - 1)
-		_								-> a.take(i + 1)
+	_									-> a.take(i + 1)
 }
 trim_right = (a:Str) => a.trim_right(a.length() - 1)
 

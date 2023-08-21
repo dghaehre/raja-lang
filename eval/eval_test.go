@@ -227,9 +227,13 @@ concat_some_strings(1, 2, 3)
 func TestBaseTrim(t *testing.T) {
 	p := `
 	x = " some string  "
-	x.trim()
-`
+	x.trim()`
 	expectProgramToReturn(t, p, StringValue("some string"))
+
+	right := `
+	x = " some string  "
+	x.trim_right()`
+	expectProgramToReturn(t, right, StringValue(" some string"))
 }
 
 func TestBaseTake(t *testing.T) {
@@ -263,7 +267,6 @@ func TestBaseSplitByWithMatchingEnding(t *testing.T) {
 `
 	expectProgramToReturn(t, p, IntValue(3))
 }
-
 
 func TestBaseMapLast(t *testing.T) {
 	p := `
