@@ -9,7 +9,7 @@ import (
 	"testing"
 )
 
-func expectTypecheckToReturn(t *testing.T, program string, expected typedAstNode) {
+func expectTypecheckToReturn(t *testing.T, program string, expected TypedAstNode) {
 	ctx := NewTypecheckContext()
 	ctx.LoadBuiltins()
 	val, err := ctx.Typecheck(strings.NewReader(program), "test")

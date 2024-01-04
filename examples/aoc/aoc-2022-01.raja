@@ -5,11 +5,21 @@ to_int = (a:Str) => a.trim().int().unwrap()
 
 sum_calories = (a:Str) => a.split_by("\n").map(to_int).sum()
 
+debug = (v, a:Str) => {
+	a.prepend("DEBUG: ").println()
+	v
+}
+
 read_file(input)
+	.unwrap()
+	.debug("Read file")
 	.trim()
-	.split_by("\n\n")
+	.debug("Trimmed file")
+	.split_by("\n\n") # Det er denne som tar lang tid!
+	.debug("Split file")
 	.map(sum_calories)
 	.sort(SortOrder::Desc)
+	.debug("Sorted file")
 	.head()
 	.unwrap()
 	.string()

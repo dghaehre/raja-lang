@@ -24,3 +24,12 @@ func StringsJoin(elems []fmt.Stringer, sep string) string {
 	}
 	return res
 }
+
+func Exists[a comparable](elems []a, elem a) bool {
+	for _, e := range elems {
+		if e == elem {
+			return true
+		}
+	}
+	return false
+}

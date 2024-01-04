@@ -4,70 +4,70 @@ import (
 	"dghaehre/raja/ast"
 )
 
-var maybeAlias typedAstNode = typedAliasNode{
+var maybeAlias TypedAstNode = typedAliasNode{
 	name: "Maybe",
-	targets: []typedAstNode{
+	targets: []TypedAstNode{
 		typedEnumNode{
 			parent: "Maybe",
 			name:   "Some",
-			args: []typedAstNode{
+			args: []TypedAstNode{
 				typedAnyNode{},
 			},
 		},
 		typedEnumNode{
 			parent: "Maybe",
 			name:   "None",
-			args:   []typedAstNode{},
+			args:   []TypedAstNode{},
 		},
 	},
 }
 
-var resultAlias typedAstNode = typedAliasNode{
+var resultAlias TypedAstNode = typedAliasNode{
 	name: "Result",
-	targets: []typedAstNode{
+	targets: []TypedAstNode{
 		typedEnumNode{
 			parent: "Result",
 			name:   "Ok",
-			args: []typedAstNode{
+			args: []TypedAstNode{
 				typedAnyNode{},
 			},
 		},
 		typedEnumNode{
 			parent: "Result",
 			name:   "Err",
-			args: []typedAstNode{
+			args: []TypedAstNode{
 				typedAnyNode{},
 			},
 		},
 	},
 }
 
-var iteratorAlias typedAstNode = typedAliasNode{
+var iteratorAlias TypedAstNode = typedAliasNode{
 	name: "Iterator",
-	targets: []typedAstNode{
+	targets: []TypedAstNode{
 		typedStringNode{},
 		typedListNode{},
 	},
 }
 
-var numAlias typedAstNode = typedAliasNode{
+var numAlias TypedAstNode = typedAliasNode{
 	name: "Num",
-	targets: []typedAstNode{
+	targets: []TypedAstNode{
 		typedIntNode{},
 		typedFloatNode{},
 	},
 }
 
-var intAlias typedAstNode = typedAliasNode{
+var intAlias TypedAstNode = typedAliasNode{
 	name: "Int",
-	targets: []typedAstNode{
+	targets: []TypedAstNode{
 		typedIntNode{},
 	},
 }
 
-var floatAlias typedAstNode = typedAliasNode{
+var floatAlias TypedAstNode = typedAliasNode{
 	name: "Float",
-	targets: []typedAstNode{
+	targets: []TypedAstNode{
 		typedFloatNode{},
 	},
 }
@@ -100,16 +100,16 @@ func (c *TypecheckContext) LoadBuiltins() {
 	// }
 }
 
-func (c *TypecheckContext) LoadFunc(name string, returnType typedAstNode, args ...typedAstNode) {
+func (c *TypecheckContext) LoadFunc(name string, returnType TypedAstNode, args ...TypedAstNode) {
 	c.typecheckScope.put(name, typedFnNode{
 		args: args,
 		body: returnType,
 	}, ast.Pos{})
 }
 
-func (c *TypecheckContext) LoadAlias(name string, returnType typedAstNode) {
+func (c *TypecheckContext) LoadAlias(name string, returnType TypedAstNode) {
 	c.typecheckScope.put(name, typedAliasNode{
 		name:    name,
-		targets: []typedAstNode{returnType},
+		targets: []TypedAstNode{returnType},
 	}, ast.Pos{})
 }
